@@ -1,0 +1,11 @@
+{
+  "name": "pixel-farm",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "test": "node build.js && node tools/sprite-sheet.js && node tools/playtest.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}

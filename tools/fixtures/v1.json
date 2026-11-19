@@ -1,0 +1,13 @@
+{
+  "profiles": [
+    {"id":"abc123","name":"Маша","avatar":"rabbit","stars":57,"streak":4,"lastDay":"2026-11-18","chestDay":"2026-11-18",
+     "words":{
+       "L-A":{"box":3,"due":1763400000000,"seen":true,"right":4,"wrong":1},
+       "L-B":{"box":2,"due":1763400000000,"seen":true,"right":2,"wrong":0},
+       "cat":{"box":1,"due":1763400000000,"seen":true,"right":1,"wrong":2}
+     },
+     "decor":[{"k":"tree"},{"k":"flower","c":"#2ba6e8"}]},
+    {"id":"def456","name":"Игрок 2","avatar":"frog","stars":0,"streak":0,"lastDay":"","chestDay":"","words":{},"decor":[]}
+  ],
+  "settings":{"ruVoice":false,"unlockAll":true,"rate":0.7}
+}

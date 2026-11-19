@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#7ec850">
+<title>Пиксель-Ферма: English</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ферма">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#222034; --paper:#fff8e7; --grass:#7ec850; --grass2:#5aa83a; --sky:#9fdcff;
+  --gold:#fee761; --gold2:#f4b41b; --red:#e43b44; --blue:#2ba6e8; --green:#63c74d; --muted:#6b6880;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:'Pixelify Sans',system-ui,sans-serif;color:var(--ink);background:var(--grass);
+  background-image:linear-gradient(45deg,rgba(0,0,0,.035) 25%,transparent 25%,transparent 75%,rgba(0,0,0,.035) 75%),
+  linear-gradient(45deg,rgba(0,0,0,.035) 25%,transparent 25%,transparent 75%,rgba(0,0,0,.035) 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#app{max-width:480px;margin:0 auto;min-height:100%;padding:12px 12px 24px;display:flex;flex-direction:column}
+canvas.px{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+.panel{background:var(--paper);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);border-radius:4px;padding:12px}
+.btn{font-family:inherit;font-size:20px;font-weight:700;color:var(--ink);background:var(--gold);border:3px solid var(--ink);
+  box-shadow:0 4px 0 var(--ink);border-radius:4px;padding:12px 16px;cursor:pointer;transition:transform .05s}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--ink)}
+.btn.blue{background:var(--blue);color:#fff}.btn.green{background:var(--green)}.btn.white{background:#fff}
+.btn.small{font-size:16px;padding:8px 12px}
+.btn[disabled]{opacity:.5}
+h1{font-size:30px;margin:6px 0 2px;text-align:center;color:#fff;text-shadow:3px 3px 0 var(--ink)}
+.sub{text-align:center;color:#fff;text-shadow:2px 2px 0 var(--ink);font-size:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1}
+.center{text-align:center}
+.muted{color:var(--muted)}
+/* home */
+.profiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 16px}
+.prof{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;position:relative}
+.prof .name{font-size:22px;font-weight:700}
+.prof .edit{position:absolute;top:4px;right:4px;font-size:14px;padding:4px 8px}
+.stat{display:inline-flex;align-items:center;gap:4px;font-size:16px;font-weight:600}
+/* map */
+.topbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.farmwrap{padding:4px;margin-bottom:12px}
+.farmwrap canvas{width:100%;border:2px solid var(--ink)}
+.farmhint{font-size:13px;color:var(--muted);text-align:center;margin-top:4px}
+.topics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.topic{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:10px 8px;position:relative}
+.topic .t{font-size:19px;font-weight:700}
+.topic .en{font-size:13px;color:var(--muted)}
+.bar{width:100%;height:10px;border:2px solid var(--ink);background:#fff;border-radius:2px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--green)}
+.topic.locked{filter:grayscale(1);opacity:.6}
+.topic .lock{position:absolute;top:6px;right:8px;font-size:18px}
+.chestline{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-size:16px}
+/* lesson */
+.lessonTop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.lessonTop .bar{height:16px;flex:1}
+.x{font-size:18px;padding:6px 12px}
+.mascot{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px;min-height:64px}
+.bubble{background:#fff;border:3px solid var(--ink);border-radius:4px;padding:8px 12px;font-size:18px;font-weight:600;position:relative;flex:1}
+.bubble:before{content:'';position:absolute;left:-11px;bottom:12px;border:8px solid transparent;border-right-color:var(--ink)}
+.stage{display:flex;flex-direction:column;align-items:center;gap:12px}
+.big{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px;width:100%}
+.word{font-size:40px;font-weight:700;letter-spacing:1px}
+.ru{font-size:20px;color:var(--muted)}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.choice{display:flex;align-items:center;justify-content:center;min-height:96px;cursor:pointer;padding:8px;font-size:26px;font-weight:700;background:#fff}
+.choice.letter{font-size:52px}
+.choice.ok{background:#c9f5b8;animation:pop .3s}
+.choice.bad{background:#ffc4c4;animation:shake .3s}
+.choice.dim{opacity:.35}
+.words{grid-template-columns:1fr}
+.words .choice{min-height:64px}
+@keyframes pop{50%{transform:scale(1.08)}}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.speak{font-size:22px}
+.slots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:58px}
+.slot{width:44px;height:54px;border:3px solid var(--ink);border-radius:4px;background:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.slot.filled{background:var(--gold)}
+.tiles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tile{width:52px;height:58px;font-size:30px;padding:0}
+.tile.used{visibility:hidden}
+.memory{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%}
+.card{aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--blue);border:3px solid var(--ink);border-radius:4px;box-shadow:0 3px 0 var(--ink);font-size:17px;font-weight:700;overflow:hidden;padding:2px;text-align:center}
+.card.open{background:#fff}
+.card.done{background:#c9f5b8;cursor:default}
+.card .q{color:#fff;font-size:28px}
+.feedback{min-height:30px;font-size:22px;font-weight:700;text-align:center}
+.feedback.good{color:#2a7a3b}.feedback.bad{color:var(--red)}
+/* reward */
+.reward{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.reward .stars{font-size:40px;font-weight:700;display:flex;align-items:center;gap:8px}
+.newitems{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chestbox{cursor:pointer;animation:wobble 1s infinite}
+@keyframes wobble{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg)}75%{transform:rotate(6deg)}}
+/* parent */
+table{width:100%;border-collapse:collapse;font-size:16px}
+td,th{border-bottom:2px dashed #d8d0b8;padding:6px 4px;text-align:left}
+.modal{position:fixed;inset:0;background:rgba(34,32,52,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal .panel{width:100%;max-width:420px}
+input[type=text]{font-family:inherit;font-size:22px;width:100%;padding:8px;border:3px solid var(--ink);border-radius:4px}
+.avatars{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.av{padding:6px;cursor:pointer;display:flex;justify-content:center;background:#fff;border:3px solid transparent;border-radius:4px}
+.av.sel{border-color:var(--ink);background:var(--gold)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:17px;margin:8px 0}
+.toggle input{width:22px;height:22px}
+.note{font-size:14px;color:var(--muted)}
+.hint{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:16px}
+.steps{margin:8px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.steps li{display:flex;align-items:center;gap:10px;font-size:17px}
+.steps .n{flex:none;width:28px;height:28px;border:3px solid var(--ink);border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700}
+.steps .ic{flex:none;background:#fff;border:2px solid var(--ink);border-radius:4px;padding:2px}
+.welcome{display:flex;flex-direction:column;gap:10px}
+.confetti{position:fixed;pointer-events:none;width:10px;height:10px;z-index:20;animation:fall 1.4s linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/*SPRITES*/
+</script>
+<script>
+'use strict';
+// ---------------- content ----------------
+const TOPICS = [
+  {id:'letters', ru:'Буквы',   en:'Letters', icon:'apple'},
+  {id:'animals', ru:'Животные',en:'Animals', icon:'cat'},
+  {id:'food',    ru:'Еда',     en:'Food',    icon:'cheese'},
+  {id:'colors',  ru:'Цвета',   en:'Colors',  icon:'ball', color:'#2ba6e8'},
+];
+const ITEMS = [
+  {id:'L-A',topic:'letters',en:'A',ru:'буква A',letter:'A',ex:'apple', sprite:'apple'},
+  {id:'L-B',topic:'letters',en:'B',ru:'буква B',letter:'B',ex:'banana',sprite:'banana'},
+  {id:'L-C',topic:'letters',en:'C',ru:'буква C',letter:'C',ex:'cat',   sprite:'cat'},
+  {id:'L-D',topic:'letters',en:'D',ru:'буква D',letter:'D',ex:'dog',   sprite:'dog'},
+  {id:'L-E',topic:'letters',en:'E',ru:'буква E',letter:'E',ex:'egg',   sprite:'egg'},
+  {id:'L-F',topic:'letters',en:'F',ru:'буква F',letter:'F',ex:'fish',  sprite:'fish'},
+  {id:'cat',topic:'animals',en:'cat',ru:'кошка',sprite:'cat'},
+  {id:'dog',topic:'animals',en:'dog',ru:'собака',sprite:'dog'},
+  {id:'cow',topic:'animals',en:'cow',ru:'корова',sprite:'cow'},
+  {id:'pig',topic:'animals',en:'pig',ru:'свинья',sprite:'pig'},
+  {id:'duck',topic:'animals',en:'duck',ru:'утка',sprite:'duck'},
+  {id:'fish',topic:'animals',en:'fish',ru:'рыба',sprite:'fish'},
+  {id:'frog',topic:'animals',en:'frog',ru:'лягушка',sprite:'frog'},
+  {id:'rabbit',topic:'animals',en:'rabbit',ru:'кролик',sprite:'rabbit'},
+  {id:'apple',topic:'food',en:'apple',ru:'яблоко',sprite:'apple'},
+  {id:'banana',topic:'food',en:'banana',ru:'банан',sprite:'banana'},
+  {id:'carrot',topic:'food',en:'carrot',ru:'морковь',sprite:'carrot'},
+  {id:'egg',topic:'food',en:'egg',ru:'яйцо',sprite:'egg'},
+  {id:'bread',topic:'food',en:'bread',ru:'хлеб',sprite:'bread'},
+  {id:'cheese',topic:'food',en:'cheese',ru:'сыр',sprite:'cheese'},
+  {id:'milk',topic:'food',en:'milk',ru:'молоко',sprite:'milk'},
+  {id:'cake',topic:'food',en:'cake',ru:'торт',sprite:'cake'},
+  {id:'red',topic:'colors',en:'red',ru:'красный',sprite:'ball',color:'#e43b44'},
+  {id:'blue',topic:'colors',en:'blue',ru:'синий',sprite:'ball',color:'#2463d6'},
+  {id:'green',topic:'colors',en:'green',ru:'зелёный',sprite:'ball',color:'#3fae3f'},
+  {id:'yellow',topic:'colors',en:'yellow',ru:'жёлтый',sprite:'ball',color:'#fee761'},
+  {id:'orange',topic:'colors',en:'orange',ru:'оранжевый',sprite:'ball',color:'#f77622'},
+  {id:'pink',topic:'colors',en:'pink',ru:'розовый',sprite:'ball',color:'#ff8fc0'},
+  {id:'black',topic:'colors',en:'black',ru:'чёрный',sprite:'ball',color:'#3a3a48'},
+  {id:'white',topic:'colors',en:'white',ru:'белый',sprite:'ball',color:'#ffffff'},
+];
+const BY_ID = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
+const AVATARS = ['cat','dog','frog','rabbit','pig','duck','cow','fish'];
+const DAY = 864e5;
+const INTERVALS = [0, 0.5*DAY, 1*DAY, 3*DAY, 7*DAY, 14*DAY];
+const NEW_PER_LESSON = 4;
+
+// ---------------- storage ----------------
+// Ключ хранилища НЕ переименовывать. Изменилась структура → новая миграция в MIGRATIONS и тест в tools/playtest.js.
+const KEY = 'pixelfarm-en-v1';
+const SCHEMA = 2;
+const BUILD = '__BUILD__';
+const DEFAULT_SETTINGS = {ruVoice:true, unlockAll:false, rate:0.8};
+const MIGRATIONS = {
+  // v1 (прототип, без schemaVersion) → v2: добавлен schemaVersion, недостающие поля заполнены, ничего не удаляется
+  1(d){
+    d.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings||{});
+    d.profiles = (d.profiles||[]).map(p=>Object.assign({id:rid(),name:'Игрок',avatar:'cat',stars:0,streak:0,lastDay:'',chestDay:'',words:{},decor:[]}, p));
+    d.schemaVersion = 2;
+    return d;
+  },
+};
+let mem = null;
+function rid(){ return Math.random().toString(36).slice(2,8); }
+function freshDB(){ return {schemaVersion:SCHEMA, profiles:[], settings:{...DEFAULT_SETTINGS}}; }
+function backupRaw(raw,why){
+  const k='pixelfarm-en-backup-'+new Date().toISOString().replace(/[:.]/g,'-')+(why?'-'+why:'');
+  try{ localStorage.setItem(k, raw); return k; }catch(e){ return null; }
+}
+function migrate(d){
+  let v = d.schemaVersion||1;
+  while(v<SCHEMA){ d = MIGRATIONS[v](d); if(!(d.schemaVersion>v)) throw new Error('migration '+v+' did not bump'); v = d.schemaVersion; }
+  return d;
+}
+function load(){
+  let raw = null;
+  try{ raw = localStorage.getItem(KEY); }catch(e){ return mem || freshDB(); } // хранилище недоступно: живём в памяти
+  if(raw==null) return freshDB();
+  let d;
+  try{ d = JSON.parse(raw); if(!d || typeof d!=='object' || !Array.isArray(d.profiles)) throw new Error('bad shape'); }
+  catch(e){ backupRaw(raw,'broken'); const f=freshDB(); writeDB(f); return f; } // битые данные: сначала копия, потом заново
+  if((d.schemaVersion||1) < SCHEMA){
+    backupRaw(raw,'before-v'+SCHEMA);
+    try{ d = migrate(d); }catch(e){ backupRaw(raw,'migration-failed'); const f=freshDB(); writeDB(f); return f; }
+    writeDB(d);
+  }
+  return d; // данные новее этой версии (schemaVersion > SCHEMA) не трогаем: все поля сохранятся как есть
+}
+function writeDB(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+function save(){ mem = DB; writeDB(DB); }
+function newProfile(name,avatar){ return {id:rid(),name,avatar,stars:0,streak:0,lastDay:'',chestDay:'',words:{},decor:[]}; }
+let DB = load();
+// Просим браузер не стирать данные при нехватке места (в установленном PWA это обычно разрешается)
+let storagePersisted = null;
+function askPersist(){
+  try{
+    if(!navigator.storage || !navigator.storage.persist) return;
+    navigator.storage.persisted().then(p=>p||navigator.storage.persist()).then(p=>{ storagePersisted=p; }).catch(()=>{});
+  }catch(e){}
+}
+askPersist();
+// Service worker: только на http(s), из file:// не регистрируется
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !BUILD.startsWith('__')){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{}));
+}
+let P = null; // active profile
+
+// ---------------- sprites ----------------
+const spriteCache = {};
+function spriteRows(name){ const s = SPRITES[name]; return s.sym ? s.rows.map(r=>r+[...r].reverse().join('')) : s.rows; }
+function drawSprite(ctx,name,x,y,scale=1,color,flip=false){
+  const rows = spriteRows(name);
+  for(let j=0;j<16;j++){ const r = rows[j];
+    for(let i=0;i<16;i++){ const ch = r[flip?15-i:i]; if(ch==='.') continue;
+      ctx.fillStyle = ch==='X' ? (color||'#e43b44') : (ch==='k' && color==='#3a3a48' && SPRITES[name]===SPRITES.ball ? '#000' : PALETTE[ch]);
+      ctx.fillRect(x+i*scale,y+j*scale,scale,scale);
+    }}
+}
+function spriteCanvas(name,size=64,color){
+  const c = document.createElement('canvas'); c.width=16; c.height=16; c.className='px';
+  c.style.width=size+'px'; c.style.height=size+'px';
+  drawSprite(c.getContext('2d'),name,0,0,1,color); return c;
+}
+function itemCanvas(it,size){ return spriteCanvas(it.sprite,size,it.color); }
+
+// ---------------- audio ----------------
+let voices = [], enVoice=null, ruVoice=null;
+function pickVoices(){
+  try{ voices = speechSynthesis.getVoices(); }catch(e){ voices=[]; }
+  const en = voices.filter(v=>/^en[-_]/i.test(v.lang));
+  const pref = ['Samantha','Google US English','Karen','Daniel','Moira','Microsoft Aria','Microsoft Jenny','Microsoft Zira'];
+  enVoice = pref.map(n=>en.find(v=>v.name.includes(n))).find(Boolean) || en.find(v=>/en[-_]US/i.test(v.lang)) || en[0] || null;
+  const ru = voices.filter(v=>/^ru/i.test(v.lang));
+  ruVoice = ru.find(v=>/Milena|Google/.test(v.name)) || ru[0] || null;
+}
+try{ pickVoices(); speechSynthesis.onvoiceschanged = pickVoices; }catch(e){}
+function speak(text,lang='en',rate){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if(lang==='en'){ u.lang = enVoice?enVoice.lang:'en-US'; if(enVoice) u.voice=enVoice; u.rate = rate||DB.settings.rate; }
+    else { if(!DB.settings.ruVoice) return; u.lang='ru-RU'; if(ruVoice) u.voice=ruVoice; u.rate=1; }
+    u.pitch = 1.05;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function speakQueue(parts){ // [[text,lang],...]
+  try{
+    speechSynthesis.cancel();
+    for(const [t,l] of parts){
+      if(l==='ru' && !DB.settings.ruVoice) continue;
+      const u = new SpeechSynthesisUtterance(t);
+      if(l==='en'){ u.lang=enVoice?enVoice.lang:'en-US'; if(enVoice)u.voice=enVoice; u.rate=DB.settings.rate; }
+      else { u.lang='ru-RU'; if(ruVoice)u.voice=ruVoice; }
+      speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+let actx=null;
+function sfx(kind){
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
+    const seqs = {ok:[[660,.08],[880,.12]], bad:[[220,.15],[180,.18]], tap:[[520,.04]], win:[[523,.1],[659,.1],[784,.1],[1047,.25]], coin:[[988,.06],[1319,.14]]};
+    let t = actx.currentTime;
+    for(const [f,d] of seqs[kind]||[]){
+      const o=actx.createOscillator(), g=actx.createGain(); o.type='square'; o.frequency.value=f;
+      g.gain.setValueAtTime(.06,t); g.gain.exponentialRampToValueAtTime(.001,t+d);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t+d); t+=d;
+    }
+  }catch(e){}
+}
+const PRAISE = ['Great!','Well done!','Super!','Awesome!','Good job!','Yes!'];
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// ---------------- helpers ----------------
+const $app = document.getElementById('app');
+function h(tag,attrs={},...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs||{})){
+    if(k==='class') e.className=v; else if(k.startsWith('on')) e.addEventListener(k.slice(2),v);
+    else if(k==='style') e.style.cssText=v; else if(v!==false && v!=null) e.setAttribute(k,v===true?'':v);
+  }
+  for(const k of kids.flat()){ if(k==null||k===false) continue; e.append(k.nodeType?k:document.createTextNode(k)); }
+  return e;
+}
+function today(d=new Date()){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function w(id){ return P.words[id]; }
+function seen(id){ return !!(P.words[id] && P.words[id].seen); }
+function topicStats(t){
+  const its = ITEMS.filter(i=>i.topic===t.id);
+  const s = its.filter(i=>seen(i.id)).length, m = its.filter(i=>seen(i.id)&&w(i.id).box>=3).length;
+  return {total:its.length, seen:s, mastered:m};
+}
+function topicUnlocked(idx){
+  if(DB.settings.unlockAll || idx===0) return true;
+  const prev = topicStats(TOPICS[idx-1]);
+  return prev.seen >= prev.total;
+}
+function stopAnim(){ if(farmRAF){ cancelAnimationFrame(farmRAF); farmRAF=null; } }
+function confetti(){
+  const cols=['#e43b44','#fee761','#63c74d','#2ba6e8','#ffa8c5','#f77622'];
+  for(let i=0;i<40;i++){ const d=h('div',{class:'confetti',style:`left:${Math.random()*100}vw;top:-12px;background:${pick(cols)};animation-delay:${Math.random()*.5}s`}); document.body.append(d); setTimeout(()=>d.remove(),2200); }
+}
+
+// ---------------- screens ----------------
+function render(screen,...args){ stopAnim(); $app.innerHTML=''; window.scrollTo(0,0); screen(...args); }
+
+function enterProfile(p){ sfx('tap'); P=p; speak('Hello, '+p.name+'!','en'); askPersist(); render(MapScreen); }
+
+function Home(){
+  if(!DB.profiles.length) return Welcome();
+  $app.append(
+    h('h1',{},'Пиксель-Ферма'),
+    h('div',{class:'sub'},'Учим английский играя'),
+  );
+  const grid = h('div',{class:'profiles'});
+  DB.profiles.forEach((p,idx)=>{
+    const card = h('div',{class:'panel prof',style:DB.profiles.length===1?'grid-column:1/-1':'',onclick:()=>enterProfile(p)},
+      spriteCanvas(p.avatar,80),
+      h('div',{class:'name'},p.name),
+      h('div',{class:'row'}, h('span',{class:'stat'},spriteCanvas('star',20),' '+p.stars), h('span',{class:'stat'},'🔥 '+p.streak)),
+      h('button',{class:'btn white small edit',onclick:(e)=>{e.stopPropagation(); editProfile(p);}},'✎'),
+    );
+    grid.append(card);
+  });
+  $app.append(grid);
+  $app.append(h('div',{class:'panel note center'},'Нажми на себя, чтобы начать. Включи звук на телефоне 🔊'));
+  const hint = InstallHint(); if(hint) $app.append(hint);
+  $app.append(h('div',{style:'flex:1'}));
+  $app.append(h('div',{class:'row',style:'margin-top:16px'},
+    h('button',{class:'btn white small grow',onclick:()=>render(Parent)},'Для родителей'),
+    h('button',{class:'btn white small grow',onclick:()=>editProfile(null)},'+ Ещё игрок')));
+}
+
+// Первый запуск: один профиль, имя и аватар. Касание «Начать» включает голос (iOS разрешает речь только после касания).
+function Welcome(){
+  let av = AVATARS[0];
+  const input = h('input',{type:'text',maxlength:14,placeholder:'Имя',autocomplete:'off'});
+  const avs = h('div',{class:'avatars'});
+  const drawAvs=()=>{ avs.innerHTML=''; AVATARS.forEach(a=>avs.append(h('div',{class:'av'+(a===av?' sel':''),onclick:()=>{sfx('tap'); av=a; drawAvs();}},spriteCanvas(a,48)))); };
+  drawAvs();
+  const msg = h('div',{class:'feedback'});
+  $app.append(h('h1',{},'Пиксель-Ферма'), h('div',{class:'sub'},'Учим английский играя'));
+  $app.append(h('div',{class:'panel welcome'},
+    h('div',{style:'font-size:24px;font-weight:700'},'Привет! Как тебя зовут?'),
+    input,
+    h('div',{style:'font-size:18px'},'Выбери, кто ты:'),
+    avs, msg,
+    h('button',{class:'btn green',onclick:()=>{
+      const name = input.value.trim();
+      if(!name){ msg.className='feedback bad'; msg.textContent='Напиши своё имя'; input.focus(); return; }
+      const p = newProfile(name,av); DB.profiles.push(p); save(); enterProfile(p);
+    }},'Начать! →')));
+  $app.append(h('div',{class:'panel note center',style:'margin-top:12px'},'Включи звук на телефоне 🔊'));
+}
+
+function editProfile(p){
+  const isNew = !p;
+  let av = isNew ? AVATARS.find(a=>!DB.profiles.some(q=>q.avatar===a))||AVATARS[0] : p.avatar;
+  const input = h('input',{type:'text',value:isNew?'':p.name,maxlength:14,placeholder:'Имя'});
+  const avs = h('div',{class:'avatars'});
+  const drawAvs=()=>{ avs.innerHTML=''; AVATARS.forEach(a=>avs.append(h('div',{class:'av'+(a===av?' sel':''),onclick:()=>{av=a;drawAvs();}},spriteCanvas(a,48)))); };
+  drawAvs();
+  const m = h('div',{class:'modal'}, h('div',{class:'panel'},
+    h('div',{style:'font-size:22px;font-weight:700;margin-bottom:8px'},isNew?'Новый игрок':'Профиль'),
+    input, avs,
+    h('div',{class:'row'},
+      h('button',{class:'btn white grow',onclick:()=>m.remove()},'Отмена'),
+      h('button',{class:'btn green grow',onclick:()=>{
+        const name=input.value.trim();
+        if(isNew){ if(!name){ input.focus(); return; } DB.profiles.push(newProfile(name,av)); }
+        else { p.name=name||p.name; p.avatar=av; }
+        save(); m.remove(); render(Home);
+      }},'Готово'))
+  ));
+  document.body.append(m);
+}
+
+// ---- «Добавь меня на главный экран» ----
+// iOS Safari стирает данные сайта, который не открывали 7 дней. Иконка на экране «Домой» от этого защищает.
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function isStandalone(){ try{ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(e){ return false; } }
+let installEvt = null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; });
+window.addEventListener('appinstalled',()=>{ installEvt=null; askPersist(); });
+function InstallHint(){
+  if(isStandalone() || (DB.settings.installHintUntil||0) > Date.now()) return null;
+  const box = h('div',{class:'panel hint'},
+    spriteCanvas('addhome',40),
+    h('div',{class:'grow'},'Добавь меня на главный экран, чтобы ферма не потерялась!'),
+    h('div',{style:'display:flex;flex-direction:column;gap:6px'},
+      h('button',{class:'btn green small',onclick:()=>{ sfx('tap');
+        if(installEvt){ installEvt.prompt(); installEvt.userChoice.finally(()=>{ installEvt=null; render(Home); }); }
+        else showInstallHelp(isIOS?'ios':'android');
+      }},'Как?'),
+      h('button',{class:'btn white small',onclick:()=>{ DB.settings.installHintUntil = Date.now()+3*DAY; save(); box.remove(); }},'Позже')));
+  return box;
+}
+function showInstallHelp(kind){
+  const step=(n,ic,text)=>h('li',{},h('span',{class:'n'},String(n)), ic&&h('span',{class:'ic'},spriteCanvas(ic,32)), h('span',{},text));
+  const steps = kind==='ios'
+    ? [step(1,'share','Нажми «Поделиться» внизу экрана Safari'),
+       step(2,'addhome','Выбери «На экран „Домой“»'),
+       step(3,null,'Нажми «Добавить» и открывай игру с новой иконки')]
+    : [step(1,null,'Нажми ⋮ в углу браузера'),
+       step(2,'addhome','Выбери «Добавить на главный экран» или «Установить приложение»'),
+       step(3,null,'Открывай игру с новой иконки')];
+  const m = h('div',{class:'modal'}, h('div',{class:'panel'},
+    h('div',{style:'font-size:22px;font-weight:700'},'Добавь на главный экран'),
+    h('ol',{class:'steps'},steps),
+    kind==='ios' && h('p',{class:'note'},'Для родителей: на iPhone игра с иконки хранит прогресс отдельно от Safari. Лучше добавить её в первый же день.'),
+    h('button',{class:'btn green',style:'width:100%',onclick:()=>m.remove()},'Понятно')));
+  document.body.append(m);
+}
+
+// ---- farm ----
+let farmRAF=null;
+function farmLayout(){
+  // deterministic slots per item id
+  const things=[];
+  const seenItems = ITEMS.filter(i=>seen(i.id));
+  const animals = seenItems.filter(i=>i.topic==='animals');
+  animals.forEach((it,k)=>{ things.push({it,kind:'walk',x:58+(k%4)*22,y:80+Math.floor(k/4)*26,seed:k*1.7}); });
+  const food = seenItems.filter(i=>i.topic==='food');
+  food.forEach((it,k)=>{ things.push({it,kind:'still',x:4+(k%4)*18,y:122+Math.floor(k/4)*18}); });
+  const colors = seenItems.filter(i=>i.topic==='colors');
+  colors.forEach((it,k)=>{ things.push({it,kind:'flower',x:80+k*14,y:128}); });
+  const letters = seenItems.filter(i=>i.topic==='letters');
+  letters.forEach((it,k)=>{ things.push({it,kind:'block',x:6+(k%3)*13,y:96+Math.floor(k/3)*12}); });
+  return things;
+}
+function drawLetterBlock(ctx,L,x,y){
+  ctx.fillStyle='#222034'; ctx.fillRect(x,y,12,12);
+  ctx.fillStyle='#fee761'; ctx.fillRect(x+1,y+1,10,10);
+  ctx.fillStyle='#f4b41b'; ctx.fillRect(x+1,y+10,10,1);
+  const g=LETTERS5x7[L]; ctx.fillStyle='#e43b44';
+  g.forEach((r,j)=>[...r].forEach((c,i)=>{ if(c==='#') ctx.fillRect(x+4+i-1,y+2+j,1,1); }));
+}
+function Farm(){
+  const W=192,H=160;
+  const c=h('canvas',{class:'px',width:W,height:H}); const ctx=c.getContext('2d');
+  const things = farmLayout();
+  const mastered = id => w(id) && w(id).box>=3;
+  const decor = P.decor||[];
+  const clouds=[{x:20,y:10},{x:120,y:18}];
+  let t0=performance.now();
+  function frame(now){
+    const t=(now-t0)/1000;
+    ctx.fillStyle='#9fdcff'; ctx.fillRect(0,0,W,48);
+    // sun
+    ctx.fillStyle='#fee761'; ctx.fillRect(160,6,16,16); ctx.fillStyle='#f4b41b'; ctx.fillRect(160,21,16,1);
+    // clouds
+    ctx.fillStyle='#fff'; clouds.forEach((cl,i)=>{ const x=((cl.x+t*(3+i))%(W+40))-30; ctx.fillRect(x,cl.y,24,6); ctx.fillRect(x+6,cl.y-4,12,4); });
+    // hills & grass
+    ctx.fillStyle='#5aa83a'; ctx.fillRect(0,40,W,8); ctx.fillStyle='#7ec850'; ctx.fillRect(0,48,W,H-48);
+    ctx.fillStyle='#6fbb45'; for(let i=0;i<40;i++){ ctx.fillRect((i*37)%W,52+((i*53)%100),2,1); }
+    // barn
+    ctx.fillStyle='#222034'; ctx.fillRect(4,30,40,42); ctx.fillStyle='#c0392b'; ctx.fillRect(5,38,38,33);
+    ctx.fillStyle='#222034'; for(let i=0;i<12;i++) ctx.fillRect(4+i*2-1,30-i+12,44-i*4+2,1);
+    ctx.fillStyle='#8e2b20'; for(let i=0;i<10;i++) ctx.fillRect(6+i*2,31-i+11,36-i*4,1);
+    ctx.fillStyle='#fff8e7'; ctx.fillRect(16,50,16,21); ctx.fillStyle='#8e2b20'; ctx.fillRect(18,52,12,19);
+    ctx.fillStyle='#fff8e7'; for(let i=0;i<12;i++){ ctx.fillRect(18+i,52+i*1.6|0,1,1); ctx.fillRect(29-i,52+i*1.6|0,1,1); }
+    // fence
+    ctx.fillStyle='#743f39'; ctx.fillRect(48,64,W-48,2); ctx.fillRect(48,70,W-48,2);
+    for(let x=50;x<W;x+=12){ ctx.fillStyle='#743f39'; ctx.fillRect(x,60,3,14); ctx.fillStyle='#b86f50'; ctx.fillRect(x+1,61,1,12); }
+    // pond
+    ctx.fillStyle='#222034'; ctx.fillRect(150,92,38,22); ctx.fillStyle='#2ba6e8'; ctx.fillRect(151,93,36,20); ctx.fillStyle='#9fdcff'; ctx.fillRect(156,97,8,1); ctx.fillRect(170,104,10,1);
+    // decor trees/flowers from chests
+    decor.forEach((d,i)=>{ const x=50+((i*41)%130), y=40-((i%2)*4); if(d.k==='tree') drawSprite(ctx,'tree',x,y-6,1); else drawSprite(ctx,'flower',x,y+2,1,d.c); });
+    // garden bed
+    ctx.fillStyle='#743f39'; ctx.fillRect(2,120,76,38); ctx.fillStyle='#8a5233'; ctx.fillRect(3,121,74,36);
+    // things
+    for(const th of things){
+      let x=th.x,y=th.y,flip=false;
+      if(th.kind==='walk'){
+        if(th.it.id==='fish'){ x=158+Math.sin(t*1.3)*8; y=94+Math.sin(t*2)*1; flip=Math.cos(t*1.3)<0; }
+        else if(th.it.id==='duck'){ x=150+Math.sin(t*.7)*12; y=88; flip=Math.cos(t*.7)<0; }
+        else { const s=Math.sin(t*0.6+th.seed); x=th.x+s*10; y=th.y+Math.abs(Math.sin(t*4+th.seed))*-1.5|0; flip=Math.cos(t*0.6+th.seed)<0; }
+      }
+      th.cx=x; th.cy=y;
+      if(th.kind==='block'){ drawLetterBlock(ctx,th.it.letter,x,y); th.w=12; continue; }
+      if(th.kind==='flower'){ drawSprite(ctx,'flower',x-1,y-12,1,th.it.color); th.cy=y-12; th.w=16; continue; }
+      drawSprite(ctx,th.it.sprite,Math.round(x),Math.round(y),1,th.it.color,flip); th.w=16;
+      if(mastered(th.it.id) && Math.floor(t*2+th.x)%3===0){ ctx.fillStyle='#fee761'; ctx.fillRect(Math.round(x)+13,Math.round(y)-1,2,2); }
+    }
+    farmRAF=requestAnimationFrame(frame);
+  }
+  farmRAF=requestAnimationFrame(frame);
+  c.addEventListener('click',e=>{
+    const r=c.getBoundingClientRect(); const px=(e.clientX-r.left)*W/r.width, py=(e.clientY-r.top)*H/r.height;
+    for(const th of things.slice().reverse()){
+      if(px>=th.cx-2 && px<=th.cx+th.w+2 && py>=th.cy-2 && py<=th.cy+(th.w)+2){
+        sfx('tap'); const it=th.it; speak(it.letter? it.letter+'. '+it.letter+' is for '+it.ex : it.en,'en'); return;
+      }
+    }
+  });
+  return c;
+}
+
+function MapScreen(){
+  const td=today();
+  $app.append(h('div',{class:'topbar'},
+    h('button',{class:'btn white small',onclick:()=>render(Home)},'←'),
+    spriteCanvas(P.avatar,36), h('b',{style:'font-size:20px'},P.name), h('div',{class:'grow'}),
+    h('span',{class:'stat'},spriteCanvas('star',22),' '+P.stars), h('span',{class:'stat'},'🔥 '+P.streak)
+  ));
+  const seenCount = ITEMS.filter(i=>seen(i.id)).length;
+  $app.append(h('div',{class:'panel farmwrap'}, Farm(),
+    h('div',{class:'farmhint'}, seenCount? 'Твоя ферма: '+seenCount+' слов. Нажми на кого-нибудь, и он скажет своё имя!' : 'Ферма пока пустая. Пройди урок, и сюда придут животные!')));
+  const tg=h('div',{class:'topics'});
+  TOPICS.forEach((t,idx)=>{
+    const st=topicStats(t), open=topicUnlocked(idx);
+    tg.append(h('div',{class:'panel topic'+(open?'':' locked'),onclick:()=>{
+        if(!open){ sfx('bad'); speak('Сначала пройди тему «'+TOPICS[idx-1].ru+'»','ru'); return; }
+        sfx('tap'); startLesson(t);
+      }},
+      !open && h('span',{class:'lock'},'🔒'),
+      spriteCanvas(t.icon,48,t.color),
+      h('div',{class:'t'},t.ru), h('div',{class:'en'},t.en),
+      h('div',{class:'bar'},h('i',{style:`width:${Math.round(100*st.seen/st.total)}%`})),
+      h('div',{class:'en'},st.seen+' из '+st.total+(st.mastered?' · ⭐'+st.mastered:''))
+    ));
+  });
+  $app.append(tg);
+  const due = ITEMS.filter(i=>seen(i.id) && w(i.id).due<=Date.now()).length;
+  $app.append(h('div',{class:'chestline panel'},
+    spriteCanvas('chest',36),
+    h('div',{class:'grow'}, P.chestDay===td ? 'Сундук дня уже открыт. Возвращайся завтра!' : 'Пройди урок сегодня и открой сундук дня!'),
+  ));
+  if(due) $app.append(h('div',{class:'note center',style:'margin-top:8px;color:#fff;text-shadow:1px 1px 0 #222034'},'Пора повторить слов: '+due+'. Они попадут в следующий урок.'));
+}
+
+// ---------------- lesson engine ----------------
+let L=null;
+function startLesson(topic){
+  const now=Date.now();
+  const tItems = ITEMS.filter(i=>i.topic===topic.id);
+  const fresh = tItems.filter(i=>!seen(i.id)).slice(0,NEW_PER_LESSON);
+  let review = ITEMS.filter(i=>seen(i.id) && w(i.id).due<=now)
+    .sort((a,b)=>(w(b.id).wrong-w(a.id).wrong)||(w(a.id).due-w(b.id).due)).slice(0, fresh.length?3:5);
+  if(!fresh.length && review.length<4){
+    const extra = shuffle(tItems.filter(i=>!review.includes(i))).sort((a,b)=>w(a.id).box-w(b.id).box).slice(0,5-review.length);
+    review = review.concat(extra);
+  }
+  const targets = fresh.concat(review);
+  const tasks=[];
+  for(const it of fresh){ tasks.push({type:'listen',it}); tasks.push({type: it.letter?'see':pick(['see','spell']),it}); }
+  for(const it of review){ const types = it.letter?['listen','see']:['listen','see','spell']; tasks.push({type:pick(types),it}); }
+  let ordered = shuffle(tasks);
+  // avoid same item twice in a row
+  for(let i=1;i<ordered.length;i++) if(ordered[i].it===ordered[i-1].it){ const j=ordered.findIndex((x,k)=>k>i && x.it!==ordered[i].it); if(j>0)[ordered[i],ordered[j]]=[ordered[j],ordered[i]]; }
+  // memory game in the middle
+  const memPool = targets.filter(i=>i.topic===topic.id).length>=4 ? targets.filter(i=>i.topic===topic.id) : tItems;
+  if(memPool.length>=4) ordered.splice(Math.ceil(ordered.length/2),0,{type:'memory',items:shuffle(memPool).slice(0,4)});
+  L={topic, fresh, targets, queue:[...fresh.map(it=>({type:'intro',it})), ...ordered], pos:0, firstTry:{}, errors:{}, stars:0, total:0, retried:new Set()};
+  L.total=L.queue.length;
+  render(LessonScreen);
+}
+function lessonDone(){
+  const now=Date.now(), td=today();
+  const newly=[];
+  for(const it of L.targets){
+    const rec = P.words[it.id] || (P.words[it.id]={box:0,due:0,seen:false,right:0,wrong:0});
+    const err = L.errors[it.id]||0;
+    if(!rec.seen){ rec.seen=true; newly.push(it); rec.box = err?0:1; }
+    else rec.box = err ? Math.max(0,rec.box-1) : Math.min(5,rec.box+1);
+    rec.due = now + INTERVALS[rec.box];
+    if(err) rec.wrong+=err; else rec.right++;
+  }
+  const y=new Date(Date.now()-DAY);
+  if(P.lastDay!==td){ P.streak = (P.lastDay===today(y)) ? P.streak+1 : 1; P.lastDay=td; }
+  const bonus=3; P.stars += L.stars+bonus;
+  const chest = P.chestDay!==td;
+  save();
+  render(Reward,{newly,stars:L.stars+bonus,chest});
+}
+function LessonScreen(){
+  if(L.pos>=L.queue.length) return lessonDone();
+  const task=L.queue[L.pos];
+  const prog = h('div',{class:'bar'},h('i',{style:`width:${Math.round(100*L.pos/L.queue.length)}%`}));
+  $app.append(h('div',{class:'lessonTop'}, h('button',{class:'btn white x',onclick:()=>{ speechSynthesis&&speechSynthesis.cancel(); render(MapScreen);}},'✕'), prog,
+    h('span',{class:'stat'},spriteCanvas('star',22),' '+L.stars)));
+  const bubble=h('div',{class:'bubble'});
+  $app.append(h('div',{class:'mascot'}, spriteCanvas('duck',60), bubble));
+  const stage=h('div',{class:'stage'}); $app.append(stage);
+  const fb=h('div',{class:'feedback'});
+  const say=(ru)=>{ bubble.textContent=ru; };
+  TASKS[task.type](task,stage,say,fb);
+  stage.append(fb);
+}
+function next(){ L.pos++; render(LessonScreen); }
+function answer(task,ok,fb,afterMs=1100){
+  const id=task.it.id;
+  if(ok){
+    if(!L.firstTry[L.pos]){ L.stars++; }
+    sfx('ok'); fb.className='feedback good'; fb.textContent=pick(['Отлично!','Молодец!','Супер!','Верно!']);
+    const it=task.it;
+    setTimeout(()=>speakQueue([[pick(PRAISE),'en'],[it.letter? it.letter+' is for '+it.ex : it.en,'en']]),150);
+    setTimeout(next,afterMs+600);
+  } else {
+    L.firstTry[L.pos]=true;
+    L.errors[id]=(L.errors[id]||0)+1;
+    sfx('bad'); fb.className='feedback bad'; fb.textContent='Почти! Попробуй ещё';
+    if(!L.retried.has(L.pos)){ L.retried.add(L.pos); L.queue.push({...task}); }
+  }
+}
+function wordLabel(it){ return it.letter? it.letter : it.en; }
+function sayItem(it){ speak(it.letter? it.letter : it.en,'en'); }
+function distractors(it,n){
+  const same = ITEMS.filter(i=>i.topic===it.topic && i.id!==it.id);
+  return shuffle(same).slice(0,n);
+}
+const TASKS = {
+  intro(task,stage,say){
+    const it=task.it;
+    say(it.letter ? 'Новая буква! Послушай и повтори вслух.' : 'Новое слово! Послушай и повтори вслух.');
+    const sayIt=()=>{ sfx('tap'); if(it.letter) speakQueue([[it.letter,'en'],[it.letter+' is for '+it.ex,'en']]); else speak(it.en,'en'); };
+    stage.append(h('div',{class:'panel big'},
+      it.letter ? h('div',{class:'row'}, h('div',{class:'word',style:'font-size:72px'},it.letter, h('span',{style:'font-size:48px'},' '+it.letter.toLowerCase())), itemCanvas(it,96))
+                : itemCanvas(it,140),
+      h('div',{class:'word'}, it.letter ? it.letter+' is for '+it.ex : it.en),
+      h('div',{class:'ru'}, it.letter ? it.ru+' · '+it.ex+' = '+BY_ID[it.ex].ru : it.ru)
+    ));
+    stage.append(h('div',{class:'row',style:'width:100%'},
+      h('button',{class:'btn blue speak grow',onclick:sayIt},'🔊 Ещё раз'),
+      h('button',{class:'btn green speak grow',onclick:()=>{ sfx('coin'); next(); }},'Я сказал! ✓')
+    ));
+    sayIt();
+  },
+  listen(task,stage,say,fb){
+    const it=task.it; const opts=shuffle([it,...distractors(it,3)]);
+    say(it.letter? 'Послушай и найди букву' : 'Послушай и найди картинку');
+    stage.append(h('button',{class:'btn blue speak',onclick:()=>sayItem(it)},'🔊 Послушать'));
+    const g=h('div',{class:'choices'}); let done=false;
+    opts.forEach(o=>{
+      const el=h('div',{class:'panel choice'+(it.letter?' letter':''),onclick:()=>{
+        if(done||el.classList.contains('bad')) return;
+        if(o===it){ done=true; el.classList.add('ok'); [...g.children].forEach(c=>c!==el&&c.classList.add('dim')); answer(task,true,fb); }
+        else { el.classList.add('bad'); answer(task,false,fb); setTimeout(()=>sayItem(it),500); }
+      }}, it.letter? o.letter : itemCanvas(o,72));
+      g.append(el);
+    });
+    stage.append(g);
+    setTimeout(()=>sayItem(it),250);
+  },
+  see(task,stage,say,fb){
+    const it=task.it; const opts=shuffle([it,...distractors(it,2)]);
+    if(it.letter){
+      say('С какой буквы начинается это слово?');
+      stage.append(h('div',{class:'panel big',onclick:()=>speak(it.ex,'en')}, itemCanvas(it,120), h('div',{class:'ru'},'🔊 нажми, чтобы послушать')));
+      speak(it.ex,'en');
+    } else {
+      say('Что на картинке? Выбери слово');
+      stage.append(h('div',{class:'panel big'}, itemCanvas(it,120)));
+    }
+    const g=h('div',{class:'choices words'}); let done=false;
+    opts.forEach(o=>{
+      const el=h('div',{class:'panel choice'+(it.letter?' letter':''),onclick:()=>{
+        if(done||el.classList.contains('bad')) return;
+        if(o===it){ done=true; el.classList.add('ok'); [...g.children].forEach(c=>c!==el&&c.classList.add('dim')); answer(task,true,fb); }
+        else { el.classList.add('bad'); answer(task,false,fb); }
+      }}, wordLabel(o));
+      g.append(el);
+    });
+    stage.append(g);
+  },
+  spell(task,stage,say,fb){
+    const it=task.it, word=it.en;
+    say('Собери слово из букв');
+    stage.append(h('div',{class:'panel big',onclick:()=>speak(word,'en')}, itemCanvas(it,96), h('div',{class:'ru'},'🔊 '+it.ru)));
+    const slots=h('div',{class:'slots'}); const tiles=h('div',{class:'tiles'});
+    const extra = shuffle('abcdefghijklmnoprstuwy'.split('').filter(c=>!word.includes(c))).slice(0, word.length<=3?2:1);
+    const letters=shuffle([...word,...extra]);
+    let pos=0, mistake=false;
+    [...word].forEach(()=>slots.append(h('div',{class:'slot'})));
+    letters.forEach(ch=>{
+      const b=h('button',{class:'btn white tile',onclick:()=>{
+        if(pos>=word.length) return;
+        if(ch===word[pos]){ sfx('tap'); slots.children[pos].textContent=ch; slots.children[pos].classList.add('filled'); b.classList.add('used'); pos++;
+          if(pos===word.length){ if(mistake) L.firstTry[L.pos]=true; answer(task,true,fb); }
+        } else { b.classList.add('bad'); setTimeout(()=>b.classList.remove('bad'),300);
+          if(!mistake){ mistake=true; L.errors[it.id]=(L.errors[it.id]||0)+1; }
+          sfx('bad'); fb.className='feedback bad'; fb.textContent='Не та буква. Послушай: '+word;
+          speak(word,'en',0.6);
+        }
+      }},ch);
+      tiles.append(b);
+    });
+    stage.append(slots,tiles);
+    setTimeout(()=>speak(word,'en'),250);
+  },
+  memory(task,stage,say,fb){
+    say('Найди пары: картинка и слово');
+    const cards=shuffle(task.items.flatMap(it=>[{it,kind:'pic'},{it,kind:'word'}]));
+    const g=h('div',{class:'memory'}); let open=[], found=0, lock=false, misses=0;
+    cards.forEach(cd=>{
+      const el=h('div',{class:'card'},h('span',{class:'q'},'?'));
+      cd.el=el;
+      const show=()=>{ el.innerHTML=''; el.classList.add('open'); el.append(cd.kind==='pic'? itemCanvas(cd.it,52) : wordLabel(cd.it)); };
+      const hide=()=>{ el.innerHTML=''; el.classList.remove('open'); el.append(h('span',{class:'q'},'?')); };
+      cd.hide=hide;
+      el.addEventListener('click',()=>{
+        if(lock||cd.done||open.includes(cd)) return;
+        sfx('tap'); show(); if(cd.kind==='word') sayItem(cd.it); open.push(cd);
+        if(open.length===2){
+          const [a,b]=open;
+          if(a.it===b.it){ a.done=b.done=true; a.el.classList.add('done'); b.el.classList.add('done'); open=[]; found++; sfx('ok'); speak(wordLabel(a.it),'en');
+            if(found===task.items.length){ if(misses>4) L.firstTry[L.pos]=true; else L.stars++; L.firstTry[L.pos]=true; fb.className='feedback good'; fb.textContent='Все пары найдены!'; sfx('win'); setTimeout(next,1400); }
+          } else { lock=true; misses++; setTimeout(()=>{ a.hide(); b.hide(); open=[]; lock=false; },900); }
+        }
+      });
+      g.append(el);
+    });
+    stage.append(g);
+  }
+};
+
+function Reward({newly,stars,chest}){
+  confetti(); sfx('win');
+  const box=h('div',{class:'panel reward'});
+  box.append(h('div',{style:'font-size:30px;font-weight:700'},'Урок пройден!'));
+  box.append(h('div',{class:'stars'},spriteCanvas('star',44),'+'+stars));
+  if(newly.length){
+    box.append(h('div',{style:'font-size:18px'},'На ферму пришли:'));
+    box.append(h('div',{class:'newitems'}, newly.map(it=>h('div',{class:'center',onclick:()=>speak(it.letter?it.letter:it.en,'en')}, itemCanvas(it,56), h('div',{},it.letter? it.letter+' · '+it.ex : it.en)))));
+  }
+  speakQueue([['Great job, '+P.name+'!','en'],['Урок пройден!','ru']]);
+  const cont=h('div',{style:'width:100%'});
+  if(chest){
+    const c=h('div',{class:'chestbox',onclick:()=>{
+      const prize = Math.random()<.5 ? {k:'tree'} : {k:'flower',c:pick(['#e43b44','#2ba6e8','#fee761','#ff8fc0','#a46fd8'])};
+      P.decor=(P.decor||[]).concat(prize).slice(-10); P.chestDay=today(); P.stars+=5; save();
+      sfx('coin'); confetti();
+      c.replaceWith(h('div',{class:'center'}, prize.k==='tree'?spriteCanvas('tree',72):spriteCanvas('flower',72,prize.c),
+        h('div',{style:'font-size:18px'},(prize.k==='tree'?'Дерево':'Цветок')+' для фермы и +5 звёзд!')));
+      cont.append(h('button',{class:'btn green',style:'width:100%;margin-top:8px',onclick:()=>render(MapScreen)},'На ферму →'));
+    }}, spriteCanvas('chest',96), h('div',{style:'font-size:18px;font-weight:700'},'Сундук дня! Нажми'));
+    box.append(c); box.append(cont);
+  } else {
+    box.append(h('button',{class:'btn green',style:'width:100%',onclick:()=>render(MapScreen)},'На ферму →'));
+  }
+  $app.append(box);
+}
+
+function Parent(){
+  $app.append(h('div',{class:'topbar'}, h('button',{class:'btn white small',onclick:()=>render(Home)},'←'), h('b',{style:'font-size:22px;color:#fff;text-shadow:2px 2px 0 #222034'},'Для родителей')));
+  DB.profiles.forEach(p=>{
+    const ws=Object.entries(p.words).filter(([id,r])=>r.seen && BY_ID[id]);
+    const hard=ws.filter(([,r])=>r.wrong>0).sort((a,b)=>b[1].wrong-a[1].wrong).slice(0,6);
+    const mastered=ws.filter(([,r])=>r.box>=3).length;
+    const due=ws.filter(([,r])=>r.due<=Date.now()).length;
+    const confirmBtn=h('button',{class:'btn white small',onclick:()=>{
+      if(confirmBtn.dataset.c){ Object.assign(p,newProfile(p.name,p.avatar),{id:p.id}); save(); render(Parent); }
+      else { confirmBtn.dataset.c='1'; confirmBtn.textContent='Точно сбросить?'; confirmBtn.style.background='#ffc4c4'; }
+    }},'Сбросить прогресс');
+    $app.append(h('div',{class:'panel',style:'margin-bottom:12px'},
+      h('div',{class:'row'},spriteCanvas(p.avatar,40),h('b',{style:'font-size:22px'},p.name)),
+      h('table',{},
+        h('tr',{},h('td',{},'Слов изучено'),h('td',{},ws.length+' из '+ITEMS.length)),
+        h('tr',{},h('td',{},'Выучено прочно (3+ повторения)'),h('td',{},String(mastered))),
+        h('tr',{},h('td',{},'Ждут повторения'),h('td',{},String(due))),
+        h('tr',{},h('td',{},'Дней подряд'),h('td',{},String(p.streak))),
+        h('tr',{},h('td',{},'Звёзд'),h('td',{},String(p.stars))),
+        h('tr',{},h('td',{},'Трудные слова'),h('td',{},hard.length? hard.map(([id,r])=>BY_ID[id].en+' ('+r.wrong+')').join(', ') : '—'))
+      ),
+      h('div',{style:'margin-top:8px'},confirmBtn)
+    ));
+  });
+  const s=DB.settings;
+  const tog=(label,key)=>h('label',{class:'toggle'},h('input',{type:'checkbox',checked:s[key],onchange:e=>{s[key]=e.target.checked; save();}}),label);
+  const rate=h('input',{type:'range',min:'0.5',max:'1.1',step:'0.1',value:String(s.rate),oninput:e=>{s.rate=+e.target.value; save();},style:'width:100%'});
+  $app.append(h('div',{class:'panel'},
+    h('b',{style:'font-size:20px'},'Настройки'),
+    tog('Подсказки голосом по-русски','ruVoice'),
+    tog('Открыть все темы сразу','unlockAll'),
+    h('div',{style:'font-size:17px;margin-top:8px'},'Скорость английской речи'), rate,
+    h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speak('Hello! I am a cat. The cat is red.','en')},'🔊 Проверить голос'),
+    h('p',{class:'note'}, 'Голос: '+(enVoice? enVoice.name : 'стандартный голос телефона')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
+    h('p',{class:'note'},'Прогресс хранится в этом браузере на этом телефоне. Слова повторяются по интервалам: через полдня, 1, 3, 7 и 14 дней.'),
+    h('p',{class:'note'},'Защита от очистки: '+(storagePersisted?'включена ✓':'не включена')+'. Игра на главном экране: '+(isStandalone()?'да ✓':'нет')+'. Версия '+BUILD+'.')
+  ));
+}
+
+render(Home);
+</script>
+</body>
+</html>
