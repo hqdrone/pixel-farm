@@ -14,7 +14,7 @@ const failures = [];
 function check(ok, msg) { console.log((ok ? '  ✓ ' : '  ✗ ') + msg); if (!ok) failures.push(msg); }
 const build = env => execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, ...env }, stdio: 'pipe' });
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.m4a': 'audio/mp4' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.m4a': 'audio/mp4', '.aac': 'audio/aac' };
 function serve() {
   const srv = http.createServer((req, res) => {
     let f = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -132,8 +132,13 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     const { ctx, pg } = await newPage(browser, errs);
     await pg.goto(URL0);
     await createProfile(pg, 'Петя');
-    await pg.waitForTimeout(2500); // фоновая загрузка всех записей
+    await pg.waitForTimeout(2500);
+    const audioReq = () => pg.evaluate(() => performance.getEntriesByType('resource').filter(r => r.name.includes('/audio/')).length);
+    const n0 = await audioReq();
+    check(n0 > 0 && n0 <= 10, `при открытии скачаны только общие фразы, а не все записи (${n0})`);
     await play(pg, '.topic >> nth=0', 'persist', false);
+    const n1 = await audioReq();
+    check(n1 > n0 && n1 < await pg.evaluate(() => Object.keys(AUDIO.files).length), `урок скачал записи своих слов (${n1 - n0})`);
     const before = await stored(pg);
     const words = Object.keys(before.profiles[0].words).length;
     check(before.profiles[0].stars > 0 && words > 0, `после урока есть звёзды (${before.profiles[0].stars}) и слова (${words})`);
@@ -150,7 +155,7 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     await ctx.setOffline(true);
     await pg.reload(); await pg.waitForSelector('.prof');
     check(await pg.evaluate(() => DB.profiles[0].stars) === before.profiles[0].stars, 'офлайн приложение открывается из кэша, прогресс на месте');
-    check(await pg.evaluate(async () => !!(await getClip(AUDIO.files['en|cat']))), 'офлайн записи озвучки берутся из кэша');
+    check(await pg.evaluate(async () => { const it = BY_ID[Object.keys(DB.profiles[0].words)[0]]; return !!(await getClip(AUDIO.files['en|' + it.en])); }), 'офлайн записи пройденных слов берутся из кэша');
     await ctx.setOffline(false);
     check(await pg.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('pixelfarm-app-')).length) === 1, 'старый кэш приложения удалён');
     check(errs.length === 0, 'нет ошибок в консоли: ' + JSON.stringify(errs));

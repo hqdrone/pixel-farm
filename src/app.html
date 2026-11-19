@@ -285,8 +285,19 @@ function unlockAudio(){
     const p=audioEl.play(); p&&p.then?p.then(un,un):un(); }catch(e){}
 }
 document.addEventListener('touchend',unlockAudio,true); document.addEventListener('click',unlockAudio,true);
-// заранее скачиваем все записи, чтобы звук начинался сразу и работал офлайн
-window.addEventListener('load',()=>setTimeout(async()=>{ for(const f of Object.values(AUDIO.files)) await getClip(f); },1500));
+// Записи качаются не все сразу, а по мере надобности: при старте урока — слова этого урока.
+// Скачанное хранит service worker, поэтому пройденные темы звучат и без интернета.
+function itemPhrases(it){
+  return it.letter ? [['en',it.letter],['en',it.letter+' is for '+it.ex],['en',it.ex]] : [['en',it.en],['en-slow',it.en]];
+}
+function prefetchClips(items){
+  const files = items.flatMap(itemPhrases).map(([l,t])=>AUDIO.files[l+'|'+t]).filter(Boolean);
+  files.forEach(f=>getClip(f));
+}
+// при открытии — только общие фразы (похвала, «Урок пройден!»); слова фермы при нажатии возьмутся из кэша
+window.addEventListener('load',()=>setTimeout(()=>{
+  Object.entries(AUDIO.files).filter(([k])=>k.startsWith('ru|')||PRAISE.includes(k.slice(3))).forEach(([,f])=>getClip(f));
+},1000));
 
 let sayToken = 0, stopCurrent = null;
 function stopSpeech(){
@@ -639,6 +650,7 @@ function startLesson(topic){
   if(memPool.length>=4) ordered.splice(Math.ceil(ordered.length/2),0,{type:'memory',items:shuffle(memPool).slice(0,4)});
   L={topic, fresh, targets, queue:[...fresh.map(it=>({type:'intro',it})), ...ordered], pos:0, firstTry:{}, errors:{}, stars:0, total:0, retried:new Set()};
   L.total=L.queue.length;
+  prefetchClips([...targets, ...ordered.flatMap(t=>t.items||[t.it]).filter(Boolean)]);
   render(LessonScreen);
 }
 function lessonDone(){
