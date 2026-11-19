@@ -50,6 +50,7 @@ async function play(pg, sel, tag, shots = true) {
   for (let step = 0; step < 80; step++) {
     const st = await pg.evaluate(() => { if (typeof L === 'undefined' || !L || !document.querySelector('.stage')) return 'done'; return L.queue[L.pos].type; });
     if (st === 'done') break;
+    const pos = await pg.evaluate(() => L.pos);
     if (shots && ['spell', 'memory', 'listen', 'see'].includes(st)) await pg.screenshot({ path: `${SHOTS}/t_${tag}_${st}.png` });
     if (st === 'memory') {
       const n = await pg.$$eval('.card', c => c.length);
@@ -72,7 +73,9 @@ async function play(pg, sel, tag, shots = true) {
       }
       if (t.type === 'spell') { for (const ch of t.it.en) { const btn = [...document.querySelectorAll('.tile:not(.used)')].find(b => b.textContent === ch); btn.click(); } }
     });
-    await pg.waitForTimeout(1900);
+    // ждём перехода к следующему заданию (переход теперь ждёт конца озвучки)
+    await pg.waitForFunction(p => typeof L === 'undefined' || !L || L.pos !== p || !document.querySelector('.stage'), pos, { timeout: 15000 });
+    await pg.waitForTimeout(150);
   }
   await pg.waitForTimeout(400);
   if (shots) await pg.screenshot({ path: `${SHOTS}/r_${tag}.png` });
@@ -98,7 +101,7 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     check(await pg.evaluate(() => DB.profiles.length) === 1, 'при первом запуске создан ровно один профиль');
     await pg.screenshot({ path: SHOTS + '/s2.png' });
     await play(pg, '.topic >> nth=0', 'letters');
-    await pg.evaluate(() => { DB.settings.unlockAll = true; save(); render(MapScreen); });
+    check(await pg.$$eval('.topic.locked', e => e.length) === 0, 'все темы открыты с первого урока');
     await play(pg, '.topic >> nth=1', 'animals');
     await play(pg, '.topic >> nth=1', 'animals2');
     await play(pg, '.topic >> nth=2', 'food');

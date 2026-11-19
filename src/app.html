@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Ферма">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#222034; --paper:#fff8e7; --grass:#7ec850; --grass2:#5aa83a; --sky:#9fdcff;
@@ -21,7 +21,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
-body{font-family:'Pixelify Sans',system-ui,sans-serif;color:var(--ink);background:var(--grass);
+body{font-family:'Andika',system-ui,sans-serif;color:var(--ink);background:var(--grass);
   background-image:linear-gradient(45deg,rgba(0,0,0,.035) 25%,transparent 25%,transparent 75%,rgba(0,0,0,.035) 75%),
   linear-gradient(45deg,rgba(0,0,0,.035) 25%,transparent 25%,transparent 75%,rgba(0,0,0,.035) 75%);
   background-size:16px 16px;background-position:0 0,8px 8px;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
@@ -275,17 +275,33 @@ function speak(text,lang='en',rate){
     speechSynthesis.speak(u);
   }catch(e){}
 }
+let speaking = []; // держим ссылки: иначе Chrome теряет onend у фраз, собранных сборщиком мусора
+// Говорит фразы по очереди. Promise выполняется, когда договорена последняя фраза
+// (или по запасному таймеру: на части телефонов onend не приходит).
 function speakQueue(parts){ // [[text,lang],...]
-  try{
-    speechSynthesis.cancel();
-    for(const [t,l] of parts){
-      if(l==='ru' && !DB.settings.ruVoice) continue;
-      const u = new SpeechSynthesisUtterance(t);
-      if(l==='en'){ u.lang=enVoice?enVoice.lang:'en-US'; if(enVoice)u.voice=enVoice; u.rate=DB.settings.rate; }
-      else { u.lang='ru-RU'; if(ruVoice)u.voice=ruVoice; }
-      speechSynthesis.speak(u);
-    }
-  }catch(e){}
+  return new Promise(resolve=>{
+    let finished=false; const done=()=>{ if(!finished){ finished=true; clearTimeout(timer); resolve(); } };
+    let timer=null;
+    try{
+      if(!('speechSynthesis' in window)) return done();
+      speechSynthesis.cancel();
+      const list = parts.filter(([,l])=>!(l==='ru' && !DB.settings.ruVoice));
+      if(!list.length) return done();
+      let est=0;
+      speaking = list.map(([t,l])=>{
+        const u = new SpeechSynthesisUtterance(t);
+        if(l==='en'){ u.lang=enVoice?enVoice.lang:'en-US'; if(enVoice)u.voice=enVoice; u.rate=DB.settings.rate; }
+        else { u.lang='ru-RU'; if(ruVoice)u.voice=ruVoice; u.rate=1; }
+        u.pitch=1.05;
+        est += (t.split(/\s+/).length*0.45+0.5)/u.rate;
+        return u;
+      });
+      const last = speaking[speaking.length-1];
+      last.onend = done; last.onerror = done;
+      timer = setTimeout(done, Math.min(9000, est*1200+800));
+      speaking.forEach(u=>speechSynthesis.speak(u));
+    }catch(e){ done(); }
+  });
 }
 let actx=null;
 function sfx(kind){
@@ -324,11 +340,8 @@ function topicStats(t){
   const s = its.filter(i=>seen(i.id)).length, m = its.filter(i=>seen(i.id)&&w(i.id).box>=3).length;
   return {total:its.length, seen:s, mastered:m};
 }
-function topicUnlocked(idx){
-  if(DB.settings.unlockAll || idx===0) return true;
-  const prev = topicStats(TOPICS[idx-1]);
-  return prev.seen >= prev.total;
-}
+// Все темы открыты сразу: ребёнок сам выбирает, что учить. (Поле settings.unlockAll в данных оставлено, но не используется.)
+function topicUnlocked(idx){ return true; }
 function stopAnim(){ if(farmRAF){ cancelAnimationFrame(farmRAF); farmRAF=null; } }
 function confetti(){
   const cols=['#e43b44','#fee761','#63c74d','#2ba6e8','#ffa8c5','#f77622'];
@@ -628,8 +641,10 @@ function answer(task,ok,fb,afterMs=1100){
     if(!L.firstTry[L.pos]){ L.stars++; }
     sfx('ok'); fb.className='feedback good'; fb.textContent=pick(['Отлично!','Молодец!','Супер!','Верно!']);
     const it=task.it;
-    setTimeout(()=>speakQueue([[pick(PRAISE),'en'],[it.letter? it.letter+' is for '+it.ex : it.en,'en']]),150);
-    setTimeout(next,afterMs+600);
+    // Следующее задание только когда фраза договорена: иначе новый экран её обрывает
+    const lesson=L, pos=L.pos;
+    const said = new Promise(r=>setTimeout(r,150)).then(()=>speakQueue([[pick(PRAISE),'en'],[it.letter? it.letter+' is for '+it.ex : it.en,'en']]));
+    Promise.all([said, new Promise(r=>setTimeout(r,afterMs))]).then(()=>setTimeout(()=>{ if(L===lesson && L.pos===pos && document.querySelector('.stage')) next(); },350));
   } else {
     L.firstTry[L.pos]=true;
     L.errors[id]=(L.errors[id]||0)+1;
@@ -805,7 +820,6 @@ function Parent(){
   $app.append(h('div',{class:'panel'},
     h('b',{style:'font-size:20px'},'Настройки'),
     tog('Подсказки голосом по-русски','ruVoice'),
-    tog('Открыть все темы сразу','unlockAll'),
     h('div',{style:'font-size:17px;margin-top:8px'},'Скорость английской речи'), rate,
     h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speak('Hello! I am a cat. The cat is red.','en')},'🔊 Проверить голос'),
     h('p',{class:'note'}, 'Голос: '+(enVoice? enVoice.name : 'стандартный голос телефона')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
