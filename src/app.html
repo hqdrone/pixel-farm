@@ -264,45 +264,84 @@ function pickVoices(){
   ruVoice = ru.find(v=>/Milena|Google/.test(v.name)) || ru[0] || null;
 }
 try{ pickVoices(); speechSynthesis.onvoiceschanged = pickVoices; }catch(e){}
-function speak(text,lang='en',rate){
-  try{
-    if(!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if(lang==='en'){ u.lang = enVoice?enVoice.lang:'en-US'; if(enVoice) u.voice=enVoice; u.rate = rate||DB.settings.rate; }
-    else { if(!DB.settings.ruVoice) return; u.lang='ru-RU'; if(ruVoice) u.voice=ruVoice; u.rate=1; }
-    u.pitch = 1.05;
-    speechSynthesis.speak(u);
-  }catch(e){}
+// ---- озвучка: сначала запись из audio/ (tools/record-audio.js), если её нет — голос телефона ----
+const AUDIO = /*AUDIO*/{files:{}};
+const audioEl = new Audio(); audioEl.preload = 'auto';
+const clipURL = {};       // ключ → blob: URL (blob не идёт через service worker, поэтому нет проблем с Range-запросами в Safari)
+let clipsPlayed = 0;      // для автотеста
+function clipFile(text,lang,slow){ return AUDIO.files[(slow?'en-slow':lang)+'|'+text]; }
+function getClip(file){
+  if(!file) return Promise.resolve(null);
+  return clipURL[file] || (clipURL[file] = fetch('audio/'+file).then(r=>r.ok?r.blob():null)
+    .then(b=>b && URL.createObjectURL(b)).catch(()=>null).then(u=>{ if(!u) delete clipURL[file]; return u; }));
 }
-let speaking = []; // держим ссылки: иначе Chrome теряет onend у фраз, собранных сборщиком мусора
-// Говорит фразы по очереди. Promise выполняется, когда договорена последняя фраза
-// (или по запасному таймеру: на части телефонов onend не приходит).
-function speakQueue(parts){ // [[text,lang],...]
-  return new Promise(resolve=>{
-    let finished=false; const done=()=>{ if(!finished){ finished=true; clearTimeout(timer); resolve(); } };
-    let timer=null;
+// iOS разрешает звук только после касания: при первом касании «будим» наш единственный audio-элемент
+function unlockAudio(){
+  document.removeEventListener('touchend',unlockAudio,true); document.removeEventListener('click',unlockAudio,true);
+  const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  try{ if(audioEl.src) return; audioEl.muted=true; audioEl.src=SILENT;
+    // если за это время уже началась настоящая запись, её не трогаем
+    const un=()=>{ if(audioEl.src===SILENT){ audioEl.pause(); audioEl.muted=false; } };
+    const p=audioEl.play(); p&&p.then?p.then(un,un):un(); }catch(e){}
+}
+document.addEventListener('touchend',unlockAudio,true); document.addEventListener('click',unlockAudio,true);
+// заранее скачиваем все записи, чтобы звук начинался сразу и работал офлайн
+window.addEventListener('load',()=>setTimeout(async()=>{ for(const f of Object.values(AUDIO.files)) await getClip(f); },1500));
+
+let sayToken = 0, stopCurrent = null;
+function stopSpeech(){
+  sayToken++;
+  if(stopCurrent){ const f=stopCurrent; stopCurrent=null; f(); }
+  try{ audioEl.pause(); }catch(e){}
+  try{ speechSynthesis.cancel(); }catch(e){}
+}
+function playClip(url,rate){ // → true, если запись проиграна
+  return new Promise(res=>{
+    let fin=false; const end=ok=>{ if(fin) return; fin=true; clearTimeout(tm); audioEl.onended=audioEl.onerror=null; if(stopCurrent===stop) stopCurrent=null; res(ok); };
+    const stop=()=>end(true);
+    const tm=setTimeout(()=>end(true),10000);
+    stopCurrent=stop;
+    audioEl.onended=()=>{ clipsPlayed++; end(true); }; audioEl.onerror=()=>end(false);
     try{
-      if(!('speechSynthesis' in window)) return done();
-      speechSynthesis.cancel();
-      const list = parts.filter(([,l])=>!(l==='ru' && !DB.settings.ruVoice));
-      if(!list.length) return done();
-      let est=0;
-      speaking = list.map(([t,l])=>{
-        const u = new SpeechSynthesisUtterance(t);
-        if(l==='en'){ u.lang=enVoice?enVoice.lang:'en-US'; if(enVoice)u.voice=enVoice; u.rate=DB.settings.rate; }
-        else { u.lang='ru-RU'; if(ruVoice)u.voice=ruVoice; u.rate=1; }
-        u.pitch=1.05;
-        est += (t.split(/\s+/).length*0.45+0.5)/u.rate;
-        return u;
-      });
-      const last = speaking[speaking.length-1];
-      last.onend = done; last.onerror = done;
-      timer = setTimeout(done, Math.min(9000, est*1200+800));
-      speaking.forEach(u=>speechSynthesis.speak(u));
-    }catch(e){ done(); }
+      audioEl.src=url; audioEl.defaultPlaybackRate=audioEl.playbackRate=rate; audioEl.muted=false;
+      const p=audioEl.play(); if(p&&p.catch) p.catch(()=>end(false));
+    }catch(e){ end(false); }
   });
 }
+let speaking = []; // держим ссылки: иначе Chrome теряет onend у фраз, собранных сборщиком мусора
+function ttsOne(text,lang,rate){ // голос телефона; Promise выполняется, когда фраза договорена (или по запасному таймеру)
+  return new Promise(res=>{
+    let fin=false, tm=null; const end=()=>{ if(fin) return; fin=true; clearTimeout(tm); if(stopCurrent===end) stopCurrent=null; res(); };
+    try{
+      if(!('speechSynthesis' in window)) return end();
+      const u = new SpeechSynthesisUtterance(text);
+      if(lang==='en'){ u.lang=enVoice?enVoice.lang:'en-US'; if(enVoice) u.voice=enVoice; u.rate=rate||DB.settings.rate; }
+      else { u.lang='ru-RU'; if(ruVoice) u.voice=ruVoice; u.rate=1; }
+      u.pitch=1.05; speaking=[u];
+      u.onend=end; u.onerror=end; stopCurrent=end;
+      tm=setTimeout(end, Math.min(9000,(text.split(/\s+/).length*0.45+0.5)/u.rate*1200+800));
+      speechSynthesis.speak(u);
+    }catch(e){ end(); }
+  });
+}
+// Говорит фразы по очереди: [[текст, 'en'|'ru', скорость?], ...]. Promise выполняется, когда договорена последняя.
+async function speakQueue(parts){
+  stopSpeech(); const my = sayToken;
+  for(const [text,lang,rate] of parts){
+    if(my!==sayToken) return;
+    if(lang==='ru' && !DB.settings.ruVoice) continue;
+    const slow = lang==='en' && rate && rate<0.75;
+    const file = (slow && clipFile(text,lang,true)) || clipFile(text,lang,false);
+    const url = await getClip(file);
+    if(my!==sayToken) return;
+    // скорость из настроек родителя (0.8 = как записано); медленная запись играется как есть
+    const ok = url && await playClip(url, lang==='en' && !(slow && clipFile(text,lang,true)) ? (rate||DB.settings.rate)/0.8 : 1);
+    if(my!==sayToken) return;
+    if(!ok) await ttsOne(text,lang,rate);
+  }
+}
+function speak(text,lang='en',rate){ speakQueue([[text,lang,rate]]); }
+
 let actx=null;
 function sfx(kind){
   try{
@@ -536,7 +575,7 @@ function Farm(){
     const r=c.getBoundingClientRect(); const px=(e.clientX-r.left)*W/r.width, py=(e.clientY-r.top)*H/r.height;
     for(const th of things.slice().reverse()){
       if(px>=th.cx-2 && px<=th.cx+th.w+2 && py>=th.cy-2 && py<=th.cy+(th.w)+2){
-        sfx('tap'); const it=th.it; speak(it.letter? it.letter+'. '+it.letter+' is for '+it.ex : it.en,'en'); return;
+        sfx('tap'); const it=th.it; if(it.letter) speakQueue([[it.letter,'en'],[it.letter+' is for '+it.ex,'en']]); else speak(it.en,'en'); return;
       }
     }
   });
@@ -624,7 +663,7 @@ function LessonScreen(){
   if(L.pos>=L.queue.length) return lessonDone();
   const task=L.queue[L.pos];
   const prog = h('div',{class:'bar'},h('i',{style:`width:${Math.round(100*L.pos/L.queue.length)}%`}));
-  $app.append(h('div',{class:'lessonTop'}, h('button',{class:'btn white x',onclick:()=>{ speechSynthesis&&speechSynthesis.cancel(); render(MapScreen);}},'✕'), prog,
+  $app.append(h('div',{class:'lessonTop'}, h('button',{class:'btn white x',onclick:()=>{ stopSpeech(); render(MapScreen);}},'✕'), prog,
     h('span',{class:'stat'},spriteCanvas('star',22),' '+L.stars)));
   const bubble=h('div',{class:'bubble'});
   $app.append(h('div',{class:'mascot'}, spriteCanvas('duck',60), bubble));
@@ -821,8 +860,8 @@ function Parent(){
     h('b',{style:'font-size:20px'},'Настройки'),
     tog('Подсказки голосом по-русски','ruVoice'),
     h('div',{style:'font-size:17px;margin-top:8px'},'Скорость английской речи'), rate,
-    h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speak('Hello! I am a cat. The cat is red.','en')},'🔊 Проверить голос'),
-    h('p',{class:'note'}, 'Голос: '+(enVoice? enVoice.name : 'стандартный голос телефона')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
+    h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speakQueue([['A is for apple','en'],['Well done!','en'],['Hello! I am a cat. The cat is red.','en']])},'🔊 Проверить голос'),
+    h('p',{class:'note'}, (Object.keys(AUDIO.files).length? 'Слова озвучены записью (голос '+AUDIO.voice+', '+Object.keys(AUDIO.files).length+' фраз). Ползунок скорости работает и для записей. ' : '')+'Голос телефона для остального: '+(enVoice? enVoice.name : 'стандартный')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
     h('p',{class:'note'},'Прогресс хранится в этом браузере на этом телефоне. Слова повторяются по интервалам: через полдня, 1, 3, 7 и 14 дней.'),
     h('p',{class:'note'},'Защита от очистки: '+(storagePersisted?'включена ✓':'не включена')+'. Игра на главном экране: '+(isStandalone()?'да ✓':'нет')+'. Версия '+BUILD+'.')
   ));
