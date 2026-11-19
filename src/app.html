@@ -129,46 +129,11 @@ input[type=text]{font-family:inherit;font-size:22px;width:100%;padding:8px;borde
 /*SPRITES*/
 </script>
 <script>
+/*CONTENT*/
+</script>
+<script>
 'use strict';
-// ---------------- content ----------------
-const TOPICS = [
-  {id:'letters', ru:'Буквы',   en:'Letters', icon:'apple'},
-  {id:'animals', ru:'Животные',en:'Animals', icon:'cat'},
-  {id:'food',    ru:'Еда',     en:'Food',    icon:'cheese'},
-  {id:'colors',  ru:'Цвета',   en:'Colors',  icon:'ball', color:'#2ba6e8'},
-];
-const ITEMS = [
-  {id:'L-A',topic:'letters',en:'A',ru:'буква A',letter:'A',ex:'apple', sprite:'apple'},
-  {id:'L-B',topic:'letters',en:'B',ru:'буква B',letter:'B',ex:'banana',sprite:'banana'},
-  {id:'L-C',topic:'letters',en:'C',ru:'буква C',letter:'C',ex:'cat',   sprite:'cat'},
-  {id:'L-D',topic:'letters',en:'D',ru:'буква D',letter:'D',ex:'dog',   sprite:'dog'},
-  {id:'L-E',topic:'letters',en:'E',ru:'буква E',letter:'E',ex:'egg',   sprite:'egg'},
-  {id:'L-F',topic:'letters',en:'F',ru:'буква F',letter:'F',ex:'fish',  sprite:'fish'},
-  {id:'cat',topic:'animals',en:'cat',ru:'кошка',sprite:'cat'},
-  {id:'dog',topic:'animals',en:'dog',ru:'собака',sprite:'dog'},
-  {id:'cow',topic:'animals',en:'cow',ru:'корова',sprite:'cow'},
-  {id:'pig',topic:'animals',en:'pig',ru:'свинья',sprite:'pig'},
-  {id:'duck',topic:'animals',en:'duck',ru:'утка',sprite:'duck'},
-  {id:'fish',topic:'animals',en:'fish',ru:'рыба',sprite:'fish'},
-  {id:'frog',topic:'animals',en:'frog',ru:'лягушка',sprite:'frog'},
-  {id:'rabbit',topic:'animals',en:'rabbit',ru:'кролик',sprite:'rabbit'},
-  {id:'apple',topic:'food',en:'apple',ru:'яблоко',sprite:'apple'},
-  {id:'banana',topic:'food',en:'banana',ru:'банан',sprite:'banana'},
-  {id:'carrot',topic:'food',en:'carrot',ru:'морковь',sprite:'carrot'},
-  {id:'egg',topic:'food',en:'egg',ru:'яйцо',sprite:'egg'},
-  {id:'bread',topic:'food',en:'bread',ru:'хлеб',sprite:'bread'},
-  {id:'cheese',topic:'food',en:'cheese',ru:'сыр',sprite:'cheese'},
-  {id:'milk',topic:'food',en:'milk',ru:'молоко',sprite:'milk'},
-  {id:'cake',topic:'food',en:'cake',ru:'торт',sprite:'cake'},
-  {id:'red',topic:'colors',en:'red',ru:'красный',sprite:'ball',color:'#e43b44'},
-  {id:'blue',topic:'colors',en:'blue',ru:'синий',sprite:'ball',color:'#2463d6'},
-  {id:'green',topic:'colors',en:'green',ru:'зелёный',sprite:'ball',color:'#3fae3f'},
-  {id:'yellow',topic:'colors',en:'yellow',ru:'жёлтый',sprite:'ball',color:'#fee761'},
-  {id:'orange',topic:'colors',en:'orange',ru:'оранжевый',sprite:'ball',color:'#f77622'},
-  {id:'pink',topic:'colors',en:'pink',ru:'розовый',sprite:'ball',color:'#ff8fc0'},
-  {id:'black',topic:'colors',en:'black',ru:'чёрный',sprite:'ball',color:'#3a3a48'},
-  {id:'white',topic:'colors',en:'white',ru:'белый',sprite:'ball',color:'#ffffff'},
-];
+// ---------------- content: src/content.js (TOPICS, ITEMS) ----------------
 const BY_ID = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
 const AVATARS = ['cat','dog','frog','rabbit','pig','duck','cow','fish'];
 const DAY = 864e5;
@@ -264,63 +229,15 @@ function pickVoices(){
   ruVoice = ru.find(v=>/Milena|Google/.test(v.name)) || ru[0] || null;
 }
 try{ pickVoices(); speechSynthesis.onvoiceschanged = pickVoices; }catch(e){}
-// ---- озвучка: сначала запись из audio/ (tools/record-audio.js), если её нет — голос телефона ----
-const AUDIO = /*AUDIO*/{files:{}};
-const audioEl = new Audio(); audioEl.preload = 'auto';
-const clipURL = {};       // ключ → blob: URL (blob не идёт через service worker, поэтому нет проблем с Range-запросами в Safari)
-let clipsPlayed = 0;      // для автотеста
-function clipFile(text,lang,slow){ return AUDIO.files[(slow?'en-slow':lang)+'|'+text]; }
-function getClip(file){
-  if(!file) return Promise.resolve(null);
-  return clipURL[file] || (clipURL[file] = fetch('audio/'+file).then(r=>r.ok?r.blob():null)
-    .then(b=>b && URL.createObjectURL(b)).catch(()=>null).then(u=>{ if(!u) delete clipURL[file]; return u; }));
-}
-// iOS разрешает звук только после касания: при первом касании «будим» наш единственный audio-элемент
-function unlockAudio(){
-  document.removeEventListener('touchend',unlockAudio,true); document.removeEventListener('click',unlockAudio,true);
-  const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-  try{ if(audioEl.src) return; audioEl.muted=true; audioEl.src=SILENT;
-    // если за это время уже началась настоящая запись, её не трогаем
-    const un=()=>{ if(audioEl.src===SILENT){ audioEl.pause(); audioEl.muted=false; } };
-    const p=audioEl.play(); p&&p.then?p.then(un,un):un(); }catch(e){}
-}
-document.addEventListener('touchend',unlockAudio,true); document.addEventListener('click',unlockAudio,true);
-// Записи качаются не все сразу, а по мере надобности: при старте урока — слова этого урока.
-// Скачанное хранит service worker, поэтому пройденные темы звучат и без интернета.
-function itemPhrases(it){
-  return it.letter ? [['en',it.letter],['en',it.letter+' is for '+it.ex],['en',it.ex]] : [['en',it.en],['en-slow',it.en]];
-}
-function prefetchClips(items){
-  const files = items.flatMap(itemPhrases).map(([l,t])=>AUDIO.files[l+'|'+t]).filter(Boolean);
-  files.forEach(f=>getClip(f));
-}
-// при открытии — только общие фразы (похвала, «Урок пройден!»); слова фермы при нажатии возьмутся из кэша
-window.addEventListener('load',()=>setTimeout(()=>{
-  Object.entries(AUDIO.files).filter(([k])=>k.startsWith('ru|')||PRAISE.includes(k.slice(3))).forEach(([,f])=>getClip(f));
-},1000));
-
+// ---- озвучка: встроенный голос телефона (speechSynthesis) ----
 let sayToken = 0, stopCurrent = null;
+let speaking = []; // держим ссылки: иначе Chrome теряет onend у фраз, собранных сборщиком мусора
 function stopSpeech(){
   sayToken++;
   if(stopCurrent){ const f=stopCurrent; stopCurrent=null; f(); }
-  try{ audioEl.pause(); }catch(e){}
   try{ speechSynthesis.cancel(); }catch(e){}
 }
-function playClip(url,rate){ // → true, если запись проиграна
-  return new Promise(res=>{
-    let fin=false; const end=ok=>{ if(fin) return; fin=true; clearTimeout(tm); audioEl.onended=audioEl.onerror=null; if(stopCurrent===stop) stopCurrent=null; res(ok); };
-    const stop=()=>end(true);
-    const tm=setTimeout(()=>end(true),10000);
-    stopCurrent=stop;
-    audioEl.onended=()=>{ clipsPlayed++; end(true); }; audioEl.onerror=()=>end(false);
-    try{
-      audioEl.src=url; audioEl.defaultPlaybackRate=audioEl.playbackRate=rate; audioEl.muted=false;
-      const p=audioEl.play(); if(p&&p.catch) p.catch(()=>end(false));
-    }catch(e){ end(false); }
-  });
-}
-let speaking = []; // держим ссылки: иначе Chrome теряет onend у фраз, собранных сборщиком мусора
-function ttsOne(text,lang,rate){ // голос телефона; Promise выполняется, когда фраза договорена (или по запасному таймеру)
+function ttsOne(text,lang,rate){ // Promise выполняется, когда фраза договорена (или по запасному таймеру: onend приходит не везде)
   return new Promise(res=>{
     let fin=false, tm=null; const end=()=>{ if(fin) return; fin=true; clearTimeout(tm); if(stopCurrent===end) stopCurrent=null; res(); };
     try{
@@ -341,17 +258,15 @@ async function speakQueue(parts){
   for(const [text,lang,rate] of parts){
     if(my!==sayToken) return;
     if(lang==='ru' && !DB.settings.ruVoice) continue;
-    const slow = lang==='en' && rate && rate<0.75;
-    const file = (slow && clipFile(text,lang,true)) || clipFile(text,lang,false);
-    const url = await getClip(file);
-    if(my!==sayToken) return;
-    // скорость из настроек родителя (0.8 = как записано); медленная запись играется как есть
-    const ok = url && await playClip(url, lang==='en' && !(slow && clipFile(text,lang,true)) ? (rate||DB.settings.rate)/0.8 : 1);
-    if(my!==sayToken) return;
-    if(!ok) await ttsOne(text,lang,rate);
+    await ttsOne(text,lang,rate);
   }
 }
 function speak(text,lang='en',rate){ speakQueue([[text,lang,rate]]); }
+// Буквы. Голоса читают «A» как «capital A», поэтому называем букву строчной: «a» звучит как «эй».
+// «A is for apple» — две фразы подряд, чтобы буква не превратилась в артикль «a».
+function letterParts(it){ return [[it.letter.toLowerCase(),'en'],['is for '+it.ex,'en']]; }
+function sayLetter(it){ return speakQueue([[it.letter.toLowerCase(),'en']]); }
+function sayLetterFull(it){ return speakQueue(letterParts(it)); }
 
 let actx=null;
 function sfx(kind){
@@ -511,19 +426,28 @@ function showInstallHelp(kind){
 
 // ---- farm ----
 let farmRAF=null;
+// Раскладка фермы: у каждого слова своё постоянное место. Ферма растёт вниз, когда появляются новые темы.
+const FARM_W = 192, FARM_BASE_H = 160;
 function farmLayout(){
-  // deterministic slots per item id
-  const things=[];
-  const seenItems = ITEMS.filter(i=>seen(i.id));
-  const animals = seenItems.filter(i=>i.topic==='animals');
-  animals.forEach((it,k)=>{ things.push({it,kind:'walk',x:58+(k%4)*22,y:80+Math.floor(k/4)*26,seed:k*1.7}); });
-  const food = seenItems.filter(i=>i.topic==='food');
-  food.forEach((it,k)=>{ things.push({it,kind:'still',x:4+(k%4)*18,y:122+Math.floor(k/4)*18}); });
-  const colors = seenItems.filter(i=>i.topic==='colors');
-  colors.forEach((it,k)=>{ things.push({it,kind:'flower',x:80+k*14,y:128}); });
-  const letters = seenItems.filter(i=>i.topic==='letters');
-  letters.forEach((it,k)=>{ things.push({it,kind:'block',x:6+(k%3)*13,y:96+Math.floor(k/3)*12}); });
-  return things;
+  const things=[], sections=[];
+  const seenOf = t => ITEMS.filter(i=>i.topic===t && seen(i.id));
+  seenOf('animals').forEach((it,k)=>things.push({it,kind:'walk',x:58+(k%4)*22,y:80+Math.floor(k/4)*26,seed:k*1.7}));
+  seenOf('food').forEach((it,k)=>things.push({it,kind:'still',x:4+(k%4)*18,y:122+Math.floor(k/4)*18}));
+  seenOf('colors').forEach((it,k)=>things.push({it,kind:'flower',x:80+k*14,y:128}));
+  // погода — на небе (солнце встаёт на место нарисованного)
+  const sky = seenOf('weather').filter(it=>it.id!=='umbrella');
+  let k=0; for(const it of sky){ if(it.id==='sun') things.push({it,kind:'sky',x:158,y:3}); else things.push({it,kind:'sky',x:50+(k++)*18,y:6}); }
+  let y = FARM_BASE_H;
+  const clothes = seenOf('clothes');
+  if(clothes.length){ sections.push({kind:'line',y,h:28}); clothes.forEach((it,k)=>things.push({it,kind:'still',x:10+k*22,y:y+5})); y+=28; }
+  const yard = [...seenOf('toys'), ...seenOf('weather').filter(it=>it.id==='umbrella')];
+  if(yard.length){ sections.push({kind:'yard',y,h:22}); yard.forEach((it,k)=>things.push({it,kind:'still',x:4+k*20,y:y+3})); y+=22; }
+  const nums = seenOf('numbers');
+  if(nums.length){ sections.push({kind:'yard',y,h:22}); nums.forEach((it,k)=>things.push({it,kind:'still',x:6+k*18,y:y+3})); y+=22; }
+  const letters = seenOf('letters');
+  if(letters.length){ const rows=Math.ceil(letters.length/13); sections.push({kind:'yard',y,h:rows*14+4});
+    letters.forEach((it,k)=>things.push({it,kind:'block',x:5+(k%13)*14,y:y+3+Math.floor(k/13)*14})); y+=rows*14+4; }
+  return {things, sections, H:y};
 }
 function drawLetterBlock(ctx,L,x,y){
   ctx.fillStyle='#222034'; ctx.fillRect(x,y,12,12);
@@ -533,9 +457,9 @@ function drawLetterBlock(ctx,L,x,y){
   g.forEach((r,j)=>[...r].forEach((c,i)=>{ if(c==='#') ctx.fillRect(x+4+i-1,y+2+j,1,1); }));
 }
 function Farm(){
-  const W=192,H=160;
+  const {things, sections, H} = farmLayout(), W=FARM_W;
   const c=h('canvas',{class:'px',width:W,height:H}); const ctx=c.getContext('2d');
-  const things = farmLayout();
+  const sunLearned = things.some(th=>th.it.id==='sun');
   const mastered = id => w(id) && w(id).box>=3;
   const decor = P.decor||[];
   const clouds=[{x:20,y:10},{x:120,y:18}];
@@ -544,12 +468,18 @@ function Farm(){
     const t=(now-t0)/1000;
     ctx.fillStyle='#9fdcff'; ctx.fillRect(0,0,W,48);
     // sun
-    ctx.fillStyle='#fee761'; ctx.fillRect(160,6,16,16); ctx.fillStyle='#f4b41b'; ctx.fillRect(160,21,16,1);
+    if(!sunLearned){ ctx.fillStyle='#fee761'; ctx.fillRect(160,6,16,16); ctx.fillStyle='#f4b41b'; ctx.fillRect(160,21,16,1); }
     // clouds
     ctx.fillStyle='#fff'; clouds.forEach((cl,i)=>{ const x=((cl.x+t*(3+i))%(W+40))-30; ctx.fillRect(x,cl.y,24,6); ctx.fillRect(x+6,cl.y-4,12,4); });
     // hills & grass
     ctx.fillStyle='#5aa83a'; ctx.fillRect(0,40,W,8); ctx.fillStyle='#7ec850'; ctx.fillRect(0,48,W,H-48);
-    ctx.fillStyle='#6fbb45'; for(let i=0;i<40;i++){ ctx.fillRect((i*37)%W,52+((i*53)%100),2,1); }
+    ctx.fillStyle='#6fbb45'; for(let i=0;i<40+(H-FARM_BASE_H)/4;i++){ ctx.fillRect((i*37)%W,52+((i*53)%(H-56)),2,1); }
+    // нижние участки: верёвка для одежды, двор
+    for(const sec of sections){
+      ctx.fillStyle='#6fbb45'; ctx.fillRect(0,sec.y,W,1);
+      if(sec.kind==='line'){ ctx.fillStyle='#743f39'; ctx.fillRect(3,sec.y+2,3,sec.h-2); ctx.fillRect(W-6,sec.y+2,3,sec.h-2);
+        ctx.fillStyle='#c2c3c7'; ctx.fillRect(5,sec.y+4,W-10,1); }
+    }
     // barn
     ctx.fillStyle='#222034'; ctx.fillRect(4,30,40,42); ctx.fillStyle='#c0392b'; ctx.fillRect(5,38,38,33);
     ctx.fillStyle='#222034'; for(let i=0;i<12;i++) ctx.fillRect(4+i*2-1,30-i+12,44-i*4+2,1);
@@ -575,6 +505,7 @@ function Farm(){
       }
       th.cx=x; th.cy=y;
       if(th.kind==='block'){ drawLetterBlock(ctx,th.it.letter,x,y); th.w=12; continue; }
+      if(th.kind==='sky'){ y=th.y+Math.round(Math.sin(t*.8+th.x)*1); th.cy=y; }
       if(th.kind==='flower'){ drawSprite(ctx,'flower',x-1,y-12,1,th.it.color); th.cy=y-12; th.w=16; continue; }
       drawSprite(ctx,th.it.sprite,Math.round(x),Math.round(y),1,th.it.color,flip); th.w=16;
       if(mastered(th.it.id) && Math.floor(t*2+th.x)%3===0){ ctx.fillStyle='#fee761'; ctx.fillRect(Math.round(x)+13,Math.round(y)-1,2,2); }
@@ -586,7 +517,7 @@ function Farm(){
     const r=c.getBoundingClientRect(); const px=(e.clientX-r.left)*W/r.width, py=(e.clientY-r.top)*H/r.height;
     for(const th of things.slice().reverse()){
       if(px>=th.cx-2 && px<=th.cx+th.w+2 && py>=th.cy-2 && py<=th.cy+(th.w)+2){
-        sfx('tap'); const it=th.it; if(it.letter) speakQueue([[it.letter,'en'],[it.letter+' is for '+it.ex,'en']]); else speak(it.en,'en'); return;
+        sfx('tap'); const it=th.it; if(it.letter) speakQueue([[it.letter.toLowerCase(),'en'],...letterParts(it)]); else speak(it.en,'en'); return;
       }
     }
   });
@@ -650,7 +581,6 @@ function startLesson(topic){
   if(memPool.length>=4) ordered.splice(Math.ceil(ordered.length/2),0,{type:'memory',items:shuffle(memPool).slice(0,4)});
   L={topic, fresh, targets, queue:[...fresh.map(it=>({type:'intro',it})), ...ordered], pos:0, firstTry:{}, errors:{}, stars:0, total:0, retried:new Set()};
   L.total=L.queue.length;
-  prefetchClips([...targets, ...ordered.flatMap(t=>t.items||[t.it]).filter(Boolean)]);
   render(LessonScreen);
 }
 function lessonDone(){
@@ -694,7 +624,7 @@ function answer(task,ok,fb,afterMs=1100){
     const it=task.it;
     // Следующее задание только когда фраза договорена: иначе новый экран её обрывает
     const lesson=L, pos=L.pos;
-    const said = new Promise(r=>setTimeout(r,150)).then(()=>speakQueue([[pick(PRAISE),'en'],[it.letter? it.letter+' is for '+it.ex : it.en,'en']]));
+    const said = new Promise(r=>setTimeout(r,150)).then(()=>speakQueue([[pick(PRAISE),'en'],...(it.letter? letterParts(it) : [[it.en,'en']])]));
     Promise.all([said, new Promise(r=>setTimeout(r,afterMs))]).then(()=>setTimeout(()=>{ if(L===lesson && L.pos===pos && document.querySelector('.stage')) next(); },350));
   } else {
     L.firstTry[L.pos]=true;
@@ -704,7 +634,7 @@ function answer(task,ok,fb,afterMs=1100){
   }
 }
 function wordLabel(it){ return it.letter? it.letter : it.en; }
-function sayItem(it){ speak(it.letter? it.letter : it.en,'en'); }
+function sayItem(it){ if(it.letter) sayLetter(it); else speak(it.en,'en'); }
 function distractors(it,n){
   const same = ITEMS.filter(i=>i.topic===it.topic && i.id!==it.id);
   return shuffle(same).slice(0,n);
@@ -713,12 +643,12 @@ const TASKS = {
   intro(task,stage,say){
     const it=task.it;
     say(it.letter ? 'Новая буква! Послушай и повтори вслух.' : 'Новое слово! Послушай и повтори вслух.');
-    const sayIt=()=>{ sfx('tap'); if(it.letter) speakQueue([[it.letter,'en'],[it.letter+' is for '+it.ex,'en']]); else speak(it.en,'en'); };
+    const sayIt=()=>{ sfx('tap'); if(it.letter) speakQueue([[it.letter.toLowerCase(),'en'],...letterParts(it)]); else speak(it.en,'en'); };
     stage.append(h('div',{class:'panel big'},
       it.letter ? h('div',{class:'row'}, h('div',{class:'word',style:'font-size:72px'},it.letter, h('span',{style:'font-size:48px'},' '+it.letter.toLowerCase())), itemCanvas(it,96))
                 : itemCanvas(it,140),
       h('div',{class:'word'}, it.letter ? it.letter+' is for '+it.ex : it.en),
-      h('div',{class:'ru'}, it.letter ? it.ru+' · '+it.ex+' = '+BY_ID[it.ex].ru : it.ru)
+      h('div',{class:'ru'}, it.letter ? it.ru+' · '+it.ex+' = '+it.exRu : it.ru)
     ));
     stage.append(h('div',{class:'row',style:'width:100%'},
       h('button',{class:'btn blue speak grow',onclick:sayIt},'🔊 Ещё раз'),
@@ -803,7 +733,7 @@ const TASKS = {
         sfx('tap'); show(); if(cd.kind==='word') sayItem(cd.it); open.push(cd);
         if(open.length===2){
           const [a,b]=open;
-          if(a.it===b.it){ a.done=b.done=true; a.el.classList.add('done'); b.el.classList.add('done'); open=[]; found++; sfx('ok'); speak(wordLabel(a.it),'en');
+          if(a.it===b.it){ a.done=b.done=true; a.el.classList.add('done'); b.el.classList.add('done'); open=[]; found++; sfx('ok'); sayItem(a.it);
             if(found===task.items.length){ if(misses>4) L.firstTry[L.pos]=true; else L.stars++; L.firstTry[L.pos]=true; fb.className='feedback good'; fb.textContent='Все пары найдены!'; sfx('win'); setTimeout(next,1400); }
           } else { lock=true; misses++; setTimeout(()=>{ a.hide(); b.hide(); open=[]; lock=false; },900); }
         }
@@ -821,7 +751,7 @@ function Reward({newly,stars,chest}){
   box.append(h('div',{class:'stars'},spriteCanvas('star',44),'+'+stars));
   if(newly.length){
     box.append(h('div',{style:'font-size:18px'},'На ферму пришли:'));
-    box.append(h('div',{class:'newitems'}, newly.map(it=>h('div',{class:'center',onclick:()=>speak(it.letter?it.letter:it.en,'en')}, itemCanvas(it,56), h('div',{},it.letter? it.letter+' · '+it.ex : it.en)))));
+    box.append(h('div',{class:'newitems'}, newly.map(it=>h('div',{class:'center',onclick:()=>sayItem(it)}, itemCanvas(it,56), h('div',{},it.letter? it.letter+' · '+it.ex : it.en)))));
   }
   speakQueue([['Great job, '+P.name+'!','en'],['Урок пройден!','ru']]);
   const cont=h('div',{style:'width:100%'});
@@ -872,8 +802,8 @@ function Parent(){
     h('b',{style:'font-size:20px'},'Настройки'),
     tog('Подсказки голосом по-русски','ruVoice'),
     h('div',{style:'font-size:17px;margin-top:8px'},'Скорость английской речи'), rate,
-    h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speakQueue([['A is for apple','en'],['Well done!','en'],['Hello! I am a cat. The cat is red.','en']])},'🔊 Проверить голос'),
-    h('p',{class:'note'}, (Object.keys(AUDIO.files).length? 'Слова озвучены записью (голос '+AUDIO.voice+', '+Object.keys(AUDIO.files).length+' фраз). Ползунок скорости работает и для записей. ' : '')+'Голос телефона для остального: '+(enVoice? enVoice.name : 'стандартный')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
+    h('button',{class:'btn blue small',style:'margin-top:6px',onclick:()=>speakQueue([['a','en'],['is for apple','en'],['Hello! I am a cat. The cat is red.','en']])},'🔊 Проверить голос'),
+    h('p',{class:'note'}, 'Голос: '+(enVoice? enVoice.name : 'стандартный голос телефона')+'. Если звучит плохо, на iPhone можно скачать голос «Samantha» или «Karen» (Настройки → Универсальный доступ → Устный контент → Голоса → English).'),
     h('p',{class:'note'},'Прогресс хранится в этом браузере на этом телефоне. Слова повторяются по интервалам: через полдня, 1, 3, 7 и 14 дней.'),
     h('p',{class:'note'},'Защита от очистки: '+(storagePersisted?'включена ✓':'не включена')+'. Игра на главном экране: '+(isStandalone()?'да ✓':'нет')+'. Версия '+BUILD+'.')
   ));

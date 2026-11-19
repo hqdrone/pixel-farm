@@ -1,10 +1,9 @@
 // Service worker Пиксель-Фермы.
 // Файлы приложения: «сначала сеть, потом кэш» — обновление приходит сразу, офлайн тоже работает.
-// Шрифты Google и записи озвучки: «сначала кэш». Прогресс (localStorage) service worker не видит и не трогает.
+// Шрифты Google: «сначала кэш». Прогресс (localStorage) service worker не видит и не трогает.
 const BUILD = '__BUILD__';
 const CACHE = 'pixelfarm-app-' + BUILD;
 const FONTS = 'pixelfarm-fonts';
-const AUDIO = 'pixelfarm-audio';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -13,7 +12,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith('pixelfarm-app-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => (k.startsWith('pixelfarm-app-') && k !== CACHE) || k === 'pixelfarm-audio').map(k => caches.delete(k)))) // pixelfarm-audio: кэш бывших записей озвучки
     .then(() => self.clients.claim()));
 });
 
@@ -21,15 +20,6 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-
-  // Записи озвучки: «сначала кэш». Имя содержит ?v=<хэш>, поэтому перезаписанный файл скачается заново.
-  if (url.origin === location.origin && url.pathname.includes('/audio/')) {
-    e.respondWith(caches.open(AUDIO).then(c => c.match(req).then(hit => hit || fetch(req).then(res => {
-      if (res.ok) c.put(req, res.clone());
-      return res;
-    }))));
-    return;
-  }
 
   if (url.origin === location.origin) {
     // no-cache: браузер всё равно сверится с сервером, а не возьмёт старую копию из HTTP-кэша

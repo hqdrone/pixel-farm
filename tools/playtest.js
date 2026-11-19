@@ -14,7 +14,7 @@ const failures = [];
 function check(ok, msg) { console.log((ok ? '  ✓ ' : '  ✗ ') + msg); if (!ok) failures.push(msg); }
 const build = env => execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, ...env }, stdio: 'pipe' });
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.m4a': 'audio/mp4', '.aac': 'audio/aac' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png' };
 function serve() {
   const srv = http.createServer((req, res) => {
     let f = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -89,7 +89,7 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
   build();
   const srv = await serve();
   const URL0 = `http://127.0.0.1:${srv.address().port}/`;
-  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  const browser = await chromium.launch();
 
   // 1. Первый запуск + все темы
   if (want('play')) {
@@ -102,14 +102,22 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     await pg.screenshot({ path: SHOTS + '/s2.png' });
     await play(pg, '.topic >> nth=0', 'letters');
     check(await pg.$$eval('.topic.locked', e => e.length) === 0, 'все темы открыты с первого урока');
-    const audio = await pg.evaluate(() => ({ n: Object.keys(AUDIO.files).length, played: clipsPlayed }));
-    check(audio.n > 0 && audio.played > 0, `в уроке звучат записи, а не голос телефона (записей ${audio.n}, проиграно ${audio.played})`);
     await play(pg, '.topic >> nth=1', 'animals');
     await play(pg, '.topic >> nth=1', 'animals2');
     await play(pg, '.topic >> nth=2', 'food');
     await play(pg, '.topic >> nth=3', 'colors');
+    await play(pg, '.topic >> nth=4', 'numbers');
+    await play(pg, '.topic >> nth=5', 'toys');
+    await play(pg, '.topic >> nth=6', 'clothes');
+    await play(pg, '.topic >> nth=7', 'weather');
     await pg.waitForTimeout(1500);
     await pg.screenshot({ path: SHOTS + '/s5.png' });
+    // ферма, где выучены все слова: всё должно встать на свои места
+    const real = await pg.evaluate(() => JSON.stringify(P.words));
+    await pg.evaluate(() => { ITEMS.forEach(i => { P.words[i.id] = P.words[i.id] || { box: 3, due: 0, seen: true, right: 1, wrong: 0 }; }); render(MapScreen); });
+    await pg.waitForTimeout(800);
+    await pg.screenshot({ path: SHOTS + '/s9_full_farm.png', clip: { x: 0, y: 0, width: 390, height: 844 } });
+    await pg.evaluate(w => { P.words = JSON.parse(w); render(MapScreen); }, real);
     await pg.click('button:has-text("←")'); await pg.waitForTimeout(300);
     await pg.screenshot({ path: SHOTS + '/s1_home.png' });
     check(!!(await pg.$('.hint')), 'на главной есть подсказка «Добавь на главный экран»');
@@ -133,12 +141,7 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     await pg.goto(URL0);
     await createProfile(pg, 'Петя');
     await pg.waitForTimeout(2500);
-    const audioReq = () => pg.evaluate(() => performance.getEntriesByType('resource').filter(r => r.name.includes('/audio/')).length);
-    const n0 = await audioReq();
-    check(n0 > 0 && n0 <= 10, `при открытии скачаны только общие фразы, а не все записи (${n0})`);
     await play(pg, '.topic >> nth=0', 'persist', false);
-    const n1 = await audioReq();
-    check(n1 > n0 && n1 < await pg.evaluate(() => Object.keys(AUDIO.files).length), `урок скачал записи своих слов (${n1 - n0})`);
     const before = await stored(pg);
     const words = Object.keys(before.profiles[0].words).length;
     check(before.profiles[0].stars > 0 && words > 0, `после урока есть звёзды (${before.profiles[0].stars}) и слова (${words})`);
@@ -155,7 +158,6 @@ const stored = pg => pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
     await ctx.setOffline(true);
     await pg.reload(); await pg.waitForSelector('.prof');
     check(await pg.evaluate(() => DB.profiles[0].stars) === before.profiles[0].stars, 'офлайн приложение открывается из кэша, прогресс на месте');
-    check(await pg.evaluate(async () => { const it = BY_ID[Object.keys(DB.profiles[0].words)[0]]; return !!(await getClip(AUDIO.files['en|' + it.en])); }), 'офлайн записи пройденных слов берутся из кэша');
     await ctx.setOffline(false);
     check(await pg.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('pixelfarm-app-')).length) === 1, 'старый кэш приложения удалён');
     check(errs.length === 0, 'нет ошибок в консоли: ' + JSON.stringify(errs));

@@ -1,4 +1,4 @@
-// Сборка: src/app.html + src/sprites.js → dist/index.html (один самодостаточный файл),
+// Сборка: src/app.html + src/sprites.js + src/content.js → dist/index.html (один самодостаточный файл),
 // плюс PWA-файлы: manifest.json, sw.js, иконки PNG (рисуются из спрайта, без картинок в репозитории).
 const fs = require('fs'), path = require('path'), zlib = require('zlib'), crypto = require('crypto');
 const root = __dirname, dist = path.join(root, 'dist');
@@ -8,11 +8,9 @@ const sprites = read('src/sprites.js');
 const app = read('src/app.html');
 if (!app.includes('/*SPRITES*/')) throw new Error('В src/app.html нет метки /*SPRITES*/');
 
-// Озвучка: audio/index.json (его пишет tools/record-audio.js на Mac) вшивается в страницу, файлы копируются в dist/audio
-const audioIndex = path.join(root, 'audio/index.json');
-const AUDIO = fs.existsSync(audioIndex) ? JSON.parse(fs.readFileSync(audioIndex, 'utf8')) : { files: {} };
-if (!app.includes('/*AUDIO*/{files:{}}')) throw new Error('В src/app.html нет метки /*AUDIO*/');
-let html = app.replace('/*SPRITES*/', () => sprites).replace('/*AUDIO*/{files:{}}', () => JSON.stringify(AUDIO));
+const content = read('src/content.js');
+if (!app.includes('/*CONTENT*/')) throw new Error('В src/app.html нет метки /*CONTENT*/');
+let html = app.replace('/*SPRITES*/', () => sprites).replace('/*CONTENT*/', () => content);
 // Версия сборки: хэш содержимого (или BUILD_ID из окружения, им пользуется тест сохранности)
 const BUILD = process.env.BUILD_ID || crypto.createHash('sha1').update(html).digest('hex').slice(0, 10);
 html = html.replace('__BUILD__', BUILD);
@@ -22,13 +20,7 @@ fs.writeFileSync(path.join(dist, 'index.html'), html);
 fs.writeFileSync(path.join(dist, 'sw.js'), read('src/sw.js').replace('__BUILD__', BUILD));
 fs.writeFileSync(path.join(dist, 'manifest.json'), read('src/manifest.json'));
 fs.writeFileSync(path.join(dist, '.nojekyll'), ''); // GitHub Pages: отдать файлы как есть
-fs.rmSync(path.join(dist, 'audio'), { recursive: true, force: true });
-fs.mkdirSync(path.join(dist, 'audio'));
-for (const f of Object.values(AUDIO.files)) {
-  const name = f.split('?')[0];
-  if (!fs.existsSync(path.join(root, 'audio', name))) throw new Error('нет файла озвучки audio/' + name + ' — запусти node tools/record-audio.js');
-  fs.copyFileSync(path.join(root, 'audio', name), path.join(dist, 'audio', name));
-}
+fs.rmSync(path.join(dist, 'audio'), { recursive: true, force: true }); // озвучку записями убрали
 
 // ---- иконки: спрайт кошки на траве, PNG кодируется вручную (zlib есть в Node) ----
 const { PALETTE, SPRITES } = require(path.join(root, 'src/sprites.js'));
@@ -70,4 +62,4 @@ function iconPNG(size, spriteName) {
 for (const [file, size] of [['icon-192.png', 192], ['icon-512.png', 512], ['apple-touch-icon.png', 180]])
   fs.writeFileSync(path.join(dist, file), iconPNG(size, 'cat'));
 
-console.log('OK → dist/ (index.html, sw.js, manifest.json, иконки, озвучка: ' + Object.keys(AUDIO.files).length + '), версия', BUILD);
+console.log('OK → dist/ (index.html, sw.js, manifest.json, иконки), версия', BUILD);
