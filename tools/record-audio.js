@@ -2,7 +2,7 @@
 // Формат: AAC 32 кбит/с моно в ADTS (.aac) без контейнера m4a: m4a добавлял ~4 КБ пустого места к каждому файлу.
 // Слово ≈ 2,5 КБ, со своей медленной версией ≈ 5,5 КБ → 1000 слов ≈ 5–6 МБ.
 // Запускать на Mac после добавления новых слов:  node tools/record-audio.js
-//   уже записанные фразы пропускаются; --force перезаписывает всё (например, после смены голоса).
+//   уже записанные фразы пропускаются; при смене голоса или с --force перезаписывается всё.
 //   VOICE="Ava (Premium)" node tools/record-audio.js --force — выбрать голос вручную.
 // Голос получше: Системные настройки → Универсальный доступ → Устный контент → Системный голос →
 //   Управлять голосами → English (US) → скачать Ava/Zoe (Premium или Enhanced). Скрипт возьмёт его сам.
@@ -49,6 +49,29 @@ const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, 
 const indexFile = path.join(OUT, 'index.json');
 const old = fs.existsSync(indexFile) ? JSON.parse(fs.readFileSync(indexFile, 'utf8')) : { files: {} };
 const tmp = path.join(os.tmpdir(), 'pixelfarm-say.wav');
+// голос сменился (например, скачан Premium) → перезаписать всё
+const redo = force || old.voice !== EN || (old.voiceRu || null) !== (RU || null);
+if (redo && !force && old.voice) console.log(`Голос сменился (${old.voice} → ${EN}), перезаписываю всё`);
+
+// ---- WAV: say пишет 16 бит моно 22050 Гц; склейка нужна для фраз «A is for apple» ----
+function sayWav(text, voice, rate) {
+  execFileSync('say', ['-v', voice, '-r', String(rate), '--file-format=WAVE', '--data-format=LEI16@22050', '-o', tmp, text]);
+  const b = fs.readFileSync(tmp); let o = 12;
+  while (o < b.length) { const id = b.toString('ascii', o, o + 4), n = b.readUInt32LE(o + 4); if (id === 'data') return Buffer.from(b.subarray(o + 8, o + 8 + n)); o += 8 + n + (n & 1); }
+  throw new Error('say: в WAV нет данных');
+}
+function writeWav(pcm, f) {
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVEfmt ', 8); h.writeUInt32LE(16, 16);
+  h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(22050, 24); h.writeUInt32LE(44100, 28);
+  h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
+  fs.writeFileSync(f, Buffer.concat([h, pcm]));
+}
+const silence = ms => Buffer.alloc(Math.round(22050 * ms / 1000) * 2);
+// Название буквы. Важно: «A» голос читает как «capital A», «ay» — как «eye».
+// Строчная буква отдельно — это её название («эй», «би»), проверено для всех 26 букв (Ava, Zoe, Samantha).
+const letterName = L => L.toLowerCase();
+
 const files = {};
 let made = 0, kept = 0;
 for (const [key, p] of phrases) {
@@ -56,11 +79,15 @@ for (const [key, p] of phrases) {
   const name = (p.lang === 'ru' ? 'ru-' + crypto.createHash('sha1').update(p.text).digest('hex').slice(0, 8)
     : (p.lang === 'en-slow' ? 'slow-' : '') + slug(p.text)) + '.aac';
   const file = path.join(OUT, name);
-  if (!force && old.files[key] && fs.existsSync(file)) { files[key] = old.files[key]; kept++; continue; }
-  // буква отдельно: [[char LTRL]] — читать как название буквы («эй»), а не как артикль «a»
-  const text = p.letter ? p.text.replace(/^([A-Z])\b/, '[[char LTRL]]$1[[char NORM]]') : p.text;
+  if (!redo && old.files[key] && fs.existsSync(file)) { files[key] = old.files[key]; kept++; continue; }
+  const voice = p.lang === 'ru' ? RU : EN;
   const rate = p.lang === 'en-slow' ? 85 : p.lang === 'ru' ? 175 : 140; // слов в минуту: спокойно для начинающих
-  execFileSync('say', ['-v', p.lang === 'ru' ? RU : EN, '-r', String(rate), '--file-format=WAVE', '--data-format=LEI16@22050', '-o', tmp, text]);
+  let pcm;
+  const m = p.letter && p.text.match(/^([A-Z])( .+)?$/);
+  if (m && !m[2]) pcm = sayWav(letterName(m[1]), voice, rate);                       // «A» → «эй»
+  else if (m) pcm = Buffer.concat([sayWav(letterName(m[1]), voice, rate), silence(120), sayWav(m[2].trim(), voice, rate)]); // «эй» + «is for apple»
+  else pcm = sayWav(p.text, voice, rate);
+  writeWav(pcm, tmp);
   execFileSync('afconvert', ['-f', 'adts', '-d', 'aac', '-b', '32000', tmp, file]);
   const hash = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 8);
   files[key] = name + '?v=' + hash; // ?v= — чтобы телефон скачал запись заново после перезаписи
